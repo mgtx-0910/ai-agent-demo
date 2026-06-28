@@ -58,7 +58,7 @@ async function runAgentWithTools(query, maxIterations = 30) {
   ];
 
   for (let i = 0; i < maxIterations; i++) {
-    console.log(chalk.bgGreen(`⏳ 工具调用次数: ${i + 1}, 最大次数: ${maxIterations} 正在等待 AI 思考...`));
+    console.log(chalk.bgGreen(`⏳ 工具调用次数: ${i + 1}, 允许调用的最大次数: ${maxIterations} 正在等待 AI 思考...`));
     const response = await modelWithTools.invoke(messages);
     messages.push(response); // 检查是否有工具调用
 

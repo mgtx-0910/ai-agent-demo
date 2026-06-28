@@ -115,7 +115,7 @@ const listDirectoryTool = tool(
     try {
       const files = await fs.readdir(directoryPath);
       console.log(
-        `  [工具调用] list_directory("${directoryPath}") - 找到 ${files.length} 个项目`
+        `  [工具调用] list_directory("${directoryPath}") - 找到 ${files.length} 个文件`
       );
       return `目录内容:\n${files.map((f) => `- ${f}`).join("\n")}`;
     } catch (error) {
