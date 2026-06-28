@@ -65,7 +65,7 @@ const executeCommandTool = tool(
       `  [工具调用] execute_command("${command}")${workingDirectory ? ` - 工作目录: ${workingDirectory}` : ""}`
     );
 
-    returnnewPromise((resolve, reject) => {
+    return new Promise((resolve, reject) => {
       // 解析命令和参数
       const [cmd, ...args] = command.split(" ");
 
