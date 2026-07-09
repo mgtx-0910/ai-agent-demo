@@ -1,10 +1,28 @@
+/**
+ * all-tools.mjs — 自定义 LangChain 工具集
+ *
+ * 本模块定义了 4 个可供 LLM Agent 调用的工具：
+ *   1. read_file       — 读取指定文件内容
+ *   2. write_file      — 写入文件（自动创建目录）
+ *   3. execute_command  — 执行系统命令（支持指定工作目录）
+ *   4. list_directory  — 列出目录内容
+ *
+ * 所有工具使用 LangChain 的 tool() 函数创建，通过 Zod 定义参数 schema。
+ * 这些工具会被 mini-cursor.mjs 等 Agent 脚本导入使用。
+ */
+
+// LangChain 工具工厂函数
 import { tool } from "@langchain/core/tools";
+// Node.js 文件系统（Promise 版本）
 import fs from "node:fs/promises";
+// Node.js 路径处理
 import path from "node:path";
+// Node.js 子进程管理
 import { spawn } from "node:child_process";
+// 参数校验库
 import { z } from "zod";
 
-// 1. 读取文件工具
+// ========== 1. 读取文件工具 ==========
 const readFileTool = tool(
   async ({ filePath }) => {
     try {
@@ -29,10 +47,12 @@ const readFileTool = tool(
   }
 );
 
-// 2. 写入文件工具
+// ========== 2. 写入文件工具 ==========
+// 自动创建目标目录，无需手动 mkdir
 const writeFileTool = tool(
   async ({ filePath, content }) => {
     try {
+      // 确保目标目录存在（递归创建）
       const dir = path.dirname(filePath);
       await fs.mkdir(dir, { recursive: true });
       await fs.writeFile(filePath, content, "utf-8");
@@ -57,7 +77,8 @@ const writeFileTool = tool(
   }
 );
 
-// 3. 执行命令工具（带实时输出）
+// ========== 3. 执行命令工具（带实时输出） ==========
+// 使用 spawn 而非 exec，支持实时输出到控制台
 const executeCommandTool = tool(
   async ({ command, workingDirectory }) => {
     const cwd = workingDirectory || process.cwd();
@@ -66,13 +87,14 @@ const executeCommandTool = tool(
     );
 
     return new Promise((resolve, reject) => {
-      // 解析命令和参数
+      // 解析命令名和参数（按空格分割）
       const [cmd, ...args] = command.split(" ");
 
+      // spawn 创建子进程
       const child = spawn(cmd, args, {
-        cwd,
-        stdio: "inherit", // 实时输出到控制台
-        shell: true
+        cwd,            // 指定工作目录
+        stdio: "inherit", // 子进程的输出直接继承父进程（控制台实时显示）
+        shell: true      // 通过 shell 执行（支持管道、重定向等 shell 语法）
       });
 
       let errorMsg = "";
@@ -109,7 +131,7 @@ const executeCommandTool = tool(
   }
 );
 
-// 4. 列出目录内容工具
+// ========== 4. 列出目录内容工具 ==========
 const listDirectoryTool = tool(
   async ({ directoryPath }) => {
     try {
@@ -134,4 +156,5 @@ const listDirectoryTool = tool(
   }
 );
 
+// 导出所有工具供其他模块使用
 export { readFileTool, writeFileTool, executeCommandTool, listDirectoryTool };

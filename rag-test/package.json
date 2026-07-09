@@ -1,13 +1,14 @@
 {
+  "//": "rag-test — LangChain RAG（检索增强生成）测试子项目",
   "name": "rag-test",
   "version": "1.0.0",
-  "description": "",
+  "description": "RAG 文档加载、文本分割、向量化、检索问答示例",
   "main": "index.js",
   "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
+  "keywords": ["langchain", "rag", "vector-store", "openai"],
   "author": "",
   "license": "ISC",
   "dependencies": {

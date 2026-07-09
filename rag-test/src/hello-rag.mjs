@@ -1,8 +1,25 @@
+/**
+ * hello-rag.mjs — RAG（检索增强生成）入门示例
+ *
+ * 功能：使用 LangChain 构建一个简单的 RAG 问答系统
+ * 流程：
+ *   1. 创建一组关于"光光和东东"友谊故事的文档
+ *   2. 将文档向量化并存入内存向量数据库（MemoryVectorStore）
+ *   3. 根据用户问题检索最相关的文档片段
+ *   4. 将检索到的上下文与问题一起发给 LLM 生成回答
+ */
+
+// 加载 .env 环境变量（OPENAI_API_KEY、MODEL_NAME 等）
 import "dotenv/config";
+// LangChain 核心依赖：LLM 聊天模型、文本向量化模型
 import { ChatOpenAI, OpenAIEmbeddings } from "@langchain/openai";
+// LangChain Document 数据结构
 import { Document } from "@langchain/core/documents";
+// 内存向量存储，用于保存文档的向量表示并支持相似度检索
 import { MemoryVectorStore } from "@langchain/classic/vectorstores/memory";
 
+// ========== 1. 初始化 LLM 聊天模型 ==========
+// temperature=0 让模型输出确定性最强（减少随机性，适合问答场景）
 const model = new ChatOpenAI({
   temperature: 0,
   model: process.env.MODEL_NAME,
@@ -12,6 +29,8 @@ const model = new ChatOpenAI({
   }
 });
 
+// ========== 2. 初始化文本向量化模型 ==========
+// 将文本转为高维向量，用于语义检索
 const embeddings = new OpenAIEmbeddings({
   apiKey: process.env.OPENAI_API_KEY,
   model: process.env.EMBEDDINGS_MODEL_NAME,
@@ -20,6 +39,8 @@ const embeddings = new OpenAIEmbeddings({
   }
 });
 
+// ========== 3. 准备知识库文档 ==========
+// 每篇文档包含 pageContent（正文）和 metadata（元数据，用于过滤和标记）
 const documents = [
   new Document({
     pageContent: `光光是一个活泼开朗的小男孩，他有一双明亮的大眼睛，总是带着灿烂的笑容。光光最喜欢的事情就是和朋友们一起玩耍，他特别擅长踢足球，每次在球场上奔跑时，就像一道阳光一样充满活力。`,
@@ -86,37 +107,44 @@ const documents = [
   })
 ];
 
+// ========== 4. 创建向量存储并转为检索器 ==========
+// 将所有文档通过 embeddings 模型向量化后存入内存向量数据库
 const vectorStore = await MemoryVectorStore.fromDocuments(
   documents,
   embeddings
 );
 
+// 从向量存储创建检索器，k=3 表示每次检索返回最相似的 3 个文档
 const retriever = vectorStore.asRetriever({ k: 3 });
 
+// ========== 5. 定义要提问的问题 ==========
 const questions = ["东东和光光是怎么成为朋友的？"];
 
+// ========== 6. RAG 主流程：检索 → 增强 → 生成 ==========
 for (const question of questions) {
   console.log("=".repeat(80));
   console.log(`问题: ${question}`);
   console.log("=".repeat(80));
 
-  // 使用 retriever 获取文档
+  // 步骤 6a：使用 retriever 检索最相关文档
   const retrievedDocs = await retriever.invoke(question);
 
-  // 使用 similaritySearchWithScore 获取相似度评分
+  // 步骤 6b：使用 similaritySearchWithScore 获取带相似度评分的检索结果
   const scoredResults = await vectorStore.similaritySearchWithScore(
     question,
     3
   );
 
-  // 打印用到的文档和相似度评分
+  // 步骤 6c：打印检索到的文档及相似度评分
+  // 相似度 = 1 - score（score 越小越相似）
   console.log("\n【检索到的文档及相似度评分】");
   retrievedDocs.forEach((doc, i) => {
-    // 找到对应的评分
+    // 在评分结果中找到对应文档的评分
     const scoredResult = scoredResults.find(
       ([scoredDoc]) => scoredDoc.pageContent === doc.pageContent
     );
     const score = scoredResult ? scoredResult[1] : null;
+    // 将距离分数转为相似度（1 表示完全相似）
     const similarity = score !== null ? (1 - score).toFixed(4) : "N/A";
 
     console.log(`\n[文档 ${i + 1}] 相似度: ${similarity}`);
@@ -126,7 +154,7 @@ for (const question of questions) {
     );
   });
 
-  // 构建 prompt
+  // 步骤 6d：构建增强后的 Prompt（检索结果作为上下文注入）
   const context = retrievedDocs
     .map((doc, i) => `[片段${i + 1}]\n${doc.pageContent}`)
     .join("\n\n━━━━━\n\n");
@@ -140,7 +168,7 @@ ${context}
 
 老师的回答:`;
 
-  // 直接使用 model.invoke
+  // 步骤 6e：调用 LLM 生成最终回答
   console.log("\n【AI 回答】");
   const response = await model.invoke(prompt);
   console.log(response.content);

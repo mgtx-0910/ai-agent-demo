@@ -1,15 +1,17 @@
 {
+  "//": "tool-test — MCP/LangChain 工具测试子项目",
   "name": "test-demo",
   "version": "1.0.0",
-  "description": "",
+  "description": "LangChain 工具调用、MCP 服务器、Agent 自动化示例",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
+  "keywords": ["langchain", "mcp", "agent", "openai"],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "//": "核心依赖说明",
     "@langchain/core": "^1.1.49",
     "@langchain/mcp-adapters": "^1.1.3",
     "@langchain/openai": "^1.4.7",

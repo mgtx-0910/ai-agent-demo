@@ -1,11 +1,35 @@
+/**
+ * mini-cursor.mjs — Mini-Cursor：LLM 驱动的自动化编码 Agent
+ *
+ * 功能：模拟 Cursor IDE 的核心能力——让 LLM 根据自然语言指令，
+ *       自动读取文件、编写代码、执行命令、管理项目
+ *
+ * 工作流（ReAct 模式）：
+ *   1. 用户提出任务需求（如"创建一个 React TodoList 应用"）
+ *   2. Agent 思考 → 选择工具（执行命令/读写文件/列出目录）
+ *   3. 工具执行并返回结果
+ *   4. Agent 观察结果 → 继续思考 → 直到任务完成或达到最大迭代次数
+ *
+ * 依赖工具：all-tools.mjs 提供的 4 个工具
+ *   - read_file：读取文件内容
+ *   - write_file：创建/修改文件
+ *   - execute_command：运行 shell 命令（npm、pnpm、node 等）
+ *   - list_directory：浏览目录结构
+ */
+
+// 加载环境变量
 import "dotenv/config";
+// LLM 聊天模型
 import { ChatOpenAI } from "@langchain/openai";
+// 终端彩色输出
 import chalk from "chalk";
+// LangChain 消息类型
 import {
   HumanMessage,
   SystemMessage,
   ToolMessage
 } from "@langchain/core/messages";
+// 从 all-tools.mjs 导入自定义工具
 import {
   executeCommandTool,
   listDirectoryTool,
@@ -13,6 +37,8 @@ import {
   writeFileTool
 } from "./all-tools.mjs";
 
+// ========== 1. 初始化模型 ==========
+// temperature=0 让 Agent 行为更确定可预测（工程任务不需要随机性）
 const model = new ChatOpenAI({
   modelName: process.env.MODEL_NAME || "qwen-coder-turbo",
   apiKey: process.env.OPENAI_API_KEY,
@@ -22,6 +48,7 @@ const model = new ChatOpenAI({
   }
 });
 
+// ========== 2. 注册工具列表 ==========
 const tools = [
   readFileTool,
   writeFileTool,
@@ -29,11 +56,12 @@ const tools = [
   listDirectoryTool
 ];
 
-// 绑定工具到模型
+// 绑定工具到模型（让模型知道有哪些工具可用及各自的参数）
 const modelWithTools = model.bindTools(tools);
 
-// Agent 执行函数
+// ========== 3. Agent 执行函数（ReAct 循环） ==========
 async function runAgentWithTools(query, maxIterations = 30) {
+  // SystemMessage 定义 Agent 的行为规范和工具说明
   const messages = [
     new SystemMessage(`你是一个项目管理助手，使用工具完成任务。
 
@@ -57,16 +85,19 @@ async function runAgentWithTools(query, maxIterations = 30) {
     new HumanMessage(query)
   ];
 
+  // 循环：思考 → 工具调用 → 观察 → 继续思考
   for (let i = 0; i < maxIterations; i++) {
     console.log(chalk.bgGreen(`⏳ 工具调用次数: ${i + 1}, 允许调用的最大次数: ${maxIterations} 正在等待 AI 思考...`));
     const response = await modelWithTools.invoke(messages);
-    messages.push(response); // 检查是否有工具调用
+    messages.push(response); // 将模型回复加入历史
 
+    // 没有工具调用 → 任务完成，返回最终答案
     if (!response.tool_calls || response.tool_calls.length === 0) {
       console.log(`\n✨ AI 最终回复:\n${response.content}\n`);
       return response.content;
-    } // 执行工具调用
+    }
 
+    // 执行每个工具调用，并将结果作为 ToolMessage 加入对话历史
     for (const toolCall of response.tool_calls) {
       const foundTool = tools.find((t) => t.name === toolCall.name);
       if (foundTool) {
@@ -84,7 +115,7 @@ async function runAgentWithTools(query, maxIterations = 30) {
   return messages[messages.length - 1].content;
 }
 
-// echo 在 windows 可能不支持，可以去掉 echo 试试，不一定需要用户选择，或者换成 windows 的命令写法
+// ========== 4. 定义任务 — 创建 React TodoList 应用 ==========
 const case1 = `创建一个功能丰富的 React TodoList 应用：
 
 1. 创建项目： pnpm create vite react-todo-app --template react-ts
@@ -109,6 +140,7 @@ const case1 = `创建一个功能丰富的 React TodoList 应用：
 2. 使用 pnpm run dev 启动服务器
 `;
 
+// ========== 5. 启动 Agent ==========
 try {
   await runAgentWithTools(case1);
 } catch (error) {
