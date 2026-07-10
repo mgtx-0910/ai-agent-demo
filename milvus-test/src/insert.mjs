@@ -123,7 +123,10 @@ async function main() {
       }
     ];
 
-    // 为每条日记内容生成向量，再批量插入
+    // ========== 6. 并行生成向量（关键优化） ==========
+    // map(async) 对每个 diary 同步调用 getEmbedding，最终返回 Promise 数组
+    // Promise.all 等待所有 Promise 完成后，返回带 vector 字段的完整数组
+    // 5 条数据 ≈ 1 次 API 调用时间（最慢的那个），而非 5 次累加
     console.log('Generating embeddings...');
     const diaryData = await Promise.all(
       diaryContents.map(async (diary) => ({
