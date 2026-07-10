@@ -1,3 +1,13 @@
+/**
+ * rag.mjs — 基于 Milvus 的 RAG（检索增强生成）日记问答
+ *
+ * 功能：将用户问题向量化后在 Milvus 中检索语义相似的日记内容，
+ *       把检索结果作为上下文注入 Prompt，让 LLM 基于日记内容回答问题。
+ *       完整演示了 RAG 的核心流程：检索 → 增强 → 生成。
+ *
+ * 流程：用户提问 → 向量化查询 → Milvus 语义检索 → 构建 Prompt → LLM 生成回答
+ */
+
 import "dotenv/config";
 import { MilvusClient, MetricType } from '@zilliz/milvus2-sdk-node';
 import { ChatOpenAI, OpenAIEmbeddings } from "@langchain/openai";
@@ -5,7 +15,7 @@ import { ChatOpenAI, OpenAIEmbeddings } from "@langchain/openai";
 const COLLECTION_NAME = 'ai_diary';
 const VECTOR_DIM = 1024;
 
-// 初始化 OpenAI Chat 模型
+// 初始化 OpenAI Chat 模型（用于最终回答生成）
 const model = new ChatOpenAI({
   temperature: 0.7,
   model: process.env.MODEL_NAME,

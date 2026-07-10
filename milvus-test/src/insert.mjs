@@ -1,10 +1,22 @@
+/**
+ * insert.mjs — Milvus 数据插入脚本
+ *
+ * 功能：创建 ai_diary 集合、建立 IVF_FLAT + COSINE 索引，
+ *       将 5 条模拟日记文本向量化后批量写入 Milvus
+ *
+ * 流程：连接 Milvus → 创建集合 → 创建索引 → 加载集合 → 向量化 → 插入
+ */
+
 import "dotenv/config";
 import { MilvusClient, DataType, MetricType, IndexType } from '@zilliz/milvus2-sdk-node';
 import { OpenAIEmbeddings } from "@langchain/openai";
 
-const COLLECTION_NAME = 'ai_diary';
-const VECTOR_DIM = 1024;
+// ========== 常量配置 ==========
+const COLLECTION_NAME = 'ai_diary';  // Milvus 集合名称
+const VECTOR_DIM = 1024;             // 向量维度（需与 Embedding 模型输出一致）
 
+// ========== 初始化 Embedding 模型 ==========
+// 将文本转换为固定维度的浮点向量，用于后续语义搜索
 const embeddings = new OpenAIEmbeddings({
   apiKey: process.env.OPENAI_API_KEY,
   model: process.env.EMBEDDINGS_MODEL_NAME,
@@ -14,10 +26,17 @@ const embeddings = new OpenAIEmbeddings({
   dimensions: VECTOR_DIM
 });
 
+// ========== 初始化 Milvus 客户端 ==========
+// 连接本地 Milvus 服务（默认端口 19530）
 const client = new MilvusClient({
   address: 'localhost:19530'
 });
 
+/**
+ * 获取文本的向量嵌入
+ * @param {string} text - 待向量化的文本
+ * @returns {number[]} 1024 维浮点向量
+ */
 async function getEmbedding(text) {
   const result = await embeddings.embedQuery(text);
   return result;
@@ -25,11 +44,13 @@ async function getEmbedding(text) {
 
 async function main() {
   try {
+    // ========== 1. 连接 Milvus ==========
     console.log('Connecting to Milvus...');
     await client.connectPromise;
     console.log('✓ Connected\n');
 
-    // 创建集合
+    // ========== 2. 创建集合（Collection）= Milvus 中的"表" ==========
+    // 定义了 id（主键）、vector（向量字段）、content/date/mood/tags（标量字段）
     console.log('Creating collection...');
     await client.createCollection({
       collection_name: COLLECTION_NAME,
@@ -44,7 +65,9 @@ async function main() {
     });
     console.log('Collection created');
 
-    // 创建索引
+    // ========== 3. 创建向量索引 ==========
+    // IVF_FLAT：倒排文件索引，nlist=1024 表示将向量空间划分为 1024 个聚类
+    // COSINE：使用余弦相似度衡量向量间距离
     console.log('\nCreating index...');
     await client.createIndex({
       collection_name: COLLECTION_NAME,
@@ -55,12 +78,12 @@ async function main() {
     });
     console.log('Index created');
 
-    // 加载集合
+    // ========== 4. 将集合加载到内存（搜索前必须加载） ==========
     console.log('\nLoading collection...');
     await client.loadCollection({ collection_name: COLLECTION_NAME });
     console.log('Collection loaded');
 
-    // 插入日记数据
+    // ========== 5. 准备并插入数据 ==========
     console.log('\nInserting diary entries...');
     const diaryContents = [
       {
@@ -100,6 +123,7 @@ async function main() {
       }
     ];
 
+    // 为每条日记内容生成向量，再批量插入
     console.log('Generating embeddings...');
     const diaryData = await Promise.all(
       diaryContents.map(async (diary) => ({

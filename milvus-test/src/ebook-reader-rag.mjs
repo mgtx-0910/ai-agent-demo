@@ -1,3 +1,12 @@
+/**
+ * ebook-reader-rag.mjs — 基于 RAG 的《天龙八部》小说问答
+ *
+ * 功能：经典 RAG 流程——将用户关于小说的提问向量化后检索相关片段，
+ *       把检索到的原文内容作为知识上下文，让 LLM 基于小说原文回答问题。
+ *
+ * 流程：用户提问 → 向量化 → Milvus 语义检索 → 构建上下文 Prompt → LLM 生成回答
+ */
+
 import "dotenv/config";
 import { MilvusClient, MetricType } from '@zilliz/milvus2-sdk-node';
 import { ChatOpenAI, OpenAIEmbeddings } from "@langchain/openai";

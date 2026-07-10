@@ -1,3 +1,14 @@
+/**
+ * ebook-writer.mjs — 电子书入库脚本（EPUB → Milvus 向量存储）
+ *
+ * 功能：将《天龙八部》EPUB 电子书加载并按章节拆分，再通过 RecursiveCharacterTextSplitter
+ *       二次细分为 500 字片段，每个片段生成向量后流式写入 Milvus。
+ *       支持断点续传（先检查集合是否存在）和流式处理（边拆分边写入）。
+ *
+ * 流程：连接 Milvus → 创建/加载集合 → 解析 EPUB 按章节拆分 → 文本二次拆分 →
+ *       逐章生成向量并批量插入 → 完成入库
+ */
+
 import "dotenv/config";
 import { parse } from 'path';
 import { MilvusClient, DataType, MetricType, IndexType } from '@zilliz/milvus2-sdk-node';
@@ -5,12 +16,13 @@ import { OpenAIEmbeddings } from "@langchain/openai";
 import { EPubLoader } from "@langchain/community/document_loaders/fs/epub";
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
 
-const COLLECTION_NAME = 'ebook_collection';
-const VECTOR_DIM = 1024;
-const CHUNK_SIZE = 500; // 拆分到 500 个字符
-const EPUB_FILE = './天龙八部.epub';
+// ========== 常量配置 ==========
+const COLLECTION_NAME = 'ebook_collection';  // 电子书向量集合
+const VECTOR_DIM = 1024;                     // 向量维度
+const CHUNK_SIZE = 500;                      // 每个文本片段的字符数
+const EPUB_FILE = './天龙八部.epub';          // 待入库的 EPUB 文件路径
 
-// 从文件名提取书名（去掉扩展名）
+// 从文件名中提取书名（去掉 .epub 扩展名），用作 book_name 字段
 const BOOK_NAME = parse(EPUB_FILE).name;
 
 // 初始化 Embeddings 模型
@@ -197,18 +209,18 @@ async function main() {
     console.log('电子书处理程序');
     console.log('='.repeat(80));
 
-    // 连接 Milvus
+    // ========== 1. 连接 Milvus ==========
     console.log('\n连接 Milvus...');
     await client.connectPromise;
     console.log('✓ 已连接\n');
 
-    // 设置 book_id（
+    // ========== 2. 设置书籍标识（支持多书场景，同一集合通过 book_id 区分） ==========
     const bookId = 1;
 
-    // 确保集合存在
+    // ========== 3. 检查并创建集合 + 索引（幂等操作，已存在则跳过） ==========
     await ensureCollection(bookId);
 
-    // 加载和处理 EPUB 文件（流式处理，边处理边插入）
+    // ========== 4. 流式处理 EPUB：逐章解析 → 拆分片段 → 生成向量 → 批量插入 ==========
     await loadAndProcessEPubStreaming(bookId);
 
     console.log('='.repeat(80));
