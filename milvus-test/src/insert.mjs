@@ -29,7 +29,7 @@ const embeddings = new OpenAIEmbeddings({
 // ========== 初始化 Milvus 客户端 ==========
 // 连接本地 Milvus 服务（默认端口 19530）
 const client = new MilvusClient({
-  address: 'localhost:19530'
+  address: process.env.MILVUS_HOST || "localhost:19530"
 });
 
 /**

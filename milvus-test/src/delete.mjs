@@ -14,7 +14,7 @@ const COLLECTION_NAME = 'ai_diary';
 
 // ========== 初始化 Milvus 客户端 ==========
 const client = new MilvusClient({
-  address: 'localhost:19530'
+  address: process.env.MILVUS_HOST || "localhost:19530"
 });
 
 async function main() {
