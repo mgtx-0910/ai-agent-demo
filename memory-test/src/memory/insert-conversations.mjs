@@ -33,7 +33,7 @@ const VECTOR_DIM = 1024; // text-embedding-v3 输出维度
 // ========== 1. 初始化 Embeddings 模型 ==========
 const embeddings = new OpenAIEmbeddings({
   apiKey: process.env.OPENAI_API_KEY,
-  model: 'text-embedding-v3',
+  model: process.env.EMBEDDINGS_MODEL_NAME,
   configuration: {
     baseURL: process.env.OPENAI_BASE_URL
   },

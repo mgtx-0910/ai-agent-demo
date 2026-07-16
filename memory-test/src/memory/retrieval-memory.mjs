@@ -29,7 +29,7 @@ const COLLECTION_NAME = 'conversations';
 const VECTOR_DIM = 1024;
 
 // ========== 1. 初始化 OpenAI Chat 模型 ==========
-const model = new ChatOpenAI({ 
+const model = new ChatOpenAI({
   modelName: process.env.MODEL_NAME,
   apiKey: process.env.OPENAI_API_KEY,
   temperature: 0,
@@ -41,7 +41,7 @@ const model = new ChatOpenAI({
 // ========== 2. 初始化 Embeddings 模型 ==========
 const embeddings = new OpenAIEmbeddings({
   apiKey: process.env.OPENAI_API_KEY,
-  model: 'text-embedding-v3',
+  model: process.env.EMBEDDINGS_MODEL_NAME,
   configuration: {
     baseURL: process.env.OPENAI_BASE_URL,
   },
@@ -102,7 +102,7 @@ async function retrieveRelevantConversations(query, k = 2) {
  * 三轮对话分别询问职业、爱好、项目等话题，
  * 每轮先检索 Milvus 中相关历史 → 注入 prompt → 模型回答 → 保存回 Milvus
  */
-async function retrievalMemoryDemo() {  
+async function retrievalMemoryDemo() {
   // ========== 4. 连接 Milvus ==========
   try {
     console.log('连接到 Milvus...');
@@ -127,14 +127,14 @@ async function retrievalMemoryDemo() {
   for (let i = 0; i < conversations.length; i++) {
     const { input } = conversations[i];
     const userMessage = new HumanMessage(input);
-    
+
     console.log(`\n[第 ${i + 1} 轮对话]`);
     console.log(`用户: ${input}`);
-    
+
     // ========== 5. RAG Step 1：检索相关历史对话 ==========
     console.log('\n【检索相关历史对话】');
     const retrievedConversations = await retrieveRelevantConversations(input, 2);
-    
+
     let relevantHistory = "";
     if (retrievedConversations.length > 0) {
       // 展示检索结果及相似度
@@ -143,7 +143,7 @@ async function retrievalMemoryDemo() {
         console.log(`轮次: ${conv.round}`);
         console.log(`内容: ${conv.content}`);
       });
-      
+
       // ========== 6. RAG Step 2：构建增强 prompt ==========
       // 将检索到的历史对话拼入上下文
       relevantHistory = retrievedConversations
@@ -156,30 +156,30 @@ ${conv.content}`;
     } else {
       console.log('未找到相关历史对话');
     }
-    
+
     // ========== 7. RAG Step 3：注入检索结果到新 prompt ==========
     // 有相关历史时：将历史作为上下文 + 当前问题一并传给模型
     // 无相关历史时：直接传用户消息
-    const contextMessages = relevantHistory 
+    const contextMessages = relevantHistory
       ? [
-          new HumanMessage(`相关历史对话：\n${relevantHistory}\n\n用户问题: ${input}`)
-        ]
+        new HumanMessage(`相关历史对话：\n${relevantHistory}\n\n用户问题: ${input}`)
+      ]
       : [userMessage];
-    
+
     // ========== 8. RAG Step 4：模型生成回答 ==========
     console.log('\n【AI 回答】');
     const response = await model.invoke(contextMessages);
-    
+
     // 保存当前对话到内存历史
     await history.addMessage(userMessage);
     await history.addMessage(response);
-    
+
     // ========== 9. 将本轮对话写回 Milvus ==========
     // 实现"记忆积累"：本次对话也成为未来检索的素材
     const conversationText = `用户: ${input}\n助手: ${response.content}`;
     const convId = `conv_${Date.now()}_${i + 1}`;
     const convVector = await getEmbedding(conversationText);
-    
+
     try {
       await client.insert({
         collection_name: COLLECTION_NAME,
@@ -195,7 +195,7 @@ ${conv.content}`;
     } catch (error) {
       console.warn('保存到向量数据库时出错:', error.message);
     }
-    
+
     console.log(`助手: ${response.content}`);
   }
 }
