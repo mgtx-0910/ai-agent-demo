@@ -61,11 +61,13 @@ async function messageCountTruncation() {
   }
 
   let allMessages = await history.getMessages();
-  
+
   // 截断：切片取最后 maxMessages 条
   // 原始：[msg1, msg2, ..., msg10] → 截断后：[msg7, msg8, msg9, msg10]
   const trimmedMessages = allMessages.slice(-maxMessages);
-
+  console.log('='.repeat(60));
+  console.log(`方式 1：按消息数量截断`);
+  console.log('='.repeat(60));
   console.log(`保留消息数量: ${trimmedMessages.length}`);
   console.log("保留的消息:", trimmedMessages.map(m => `${m.constructor.name}: ${m.content}`).join('\n  '));
 }
@@ -102,7 +104,7 @@ function countTokens(messages, encoder) {
 async function tokenCountTruncation() {
   const history = new InMemoryChatMessageHistory();
   const maxTokens = 100; // token 预算上限
-  
+
   // 使用 cl100k_base 编码器（GPT-4/3.5 使用，中文约 1~2 token/字）
   const enc = getEncoding("cl100k_base");
 
@@ -127,7 +129,7 @@ async function tokenCountTruncation() {
   }
 
   let allMessages = await history.getMessages();
-  
+
   // trimMessages 自动计算：从尾部累计，达到 maxTokens 时停止
   // strategy="last"：保留最新消息（从数组末尾往前取）
   const trimmedMessages = await trimMessages(allMessages, {
@@ -135,10 +137,12 @@ async function tokenCountTruncation() {
     tokenCounter: async (msgs) => countTokens(msgs, enc), // 自定义 token 计数
     strategy: "last", // 保留最近的消息（丢弃早期消息）
   });
-  
+
   // 计算截断后的实际 token 使用量
   const totalTokens = countTokens(trimmedMessages, enc);
-  
+  console.log('='.repeat(60));
+  console.log(`方式 2：按 Token 数量截断(使用trimMessages自动计算截断)`);
+  console.log('='.repeat(60));
   console.log(`总 token 数: ${totalTokens}/${maxTokens}`);
   console.log(`保留消息数量: ${trimmedMessages.length}`);
   console.log("保留的消息:", trimmedMessages.map(m => {
@@ -146,7 +150,7 @@ async function tokenCountTruncation() {
     const tokens = enc.encode(content).length;
     return `${m.constructor.name} (${tokens} tokens): ${content}`;
   }).join('\n  '));
-  
+
 }
 
 // ========== 串行执行两种截断策略对比 ==========
