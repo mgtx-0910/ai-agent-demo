@@ -4,8 +4,20 @@
  * 流式 Tool Calls 场景，使用 JsonOutputToolsParser 增量解析 tool_calls 的 JSON 参数。
  * 相比 raw 方式直接打印 chunk，parser 能解析完整的 args 对象做增量显示。
  * 
+ * ══ bindTools 只声明 schema vs tool() 声明函数体 ══
+ * 这里 bindTools 只传了 name/description/schema，没有传函数体：
+ *   model.bindTools([{ name, description, schema }])
+ * 适用场景：只需模型按格式输出结构化数据，你手动读取 args 即可，
+ *         不需要真实执行操作（如调用 API、读写文件）。
+ * 
+ * 对比 test/all-tools.mjs 中的 tool() 工厂函数：
+ *   const readFileTool = tool(函数体, { name, description, schema })
+ * 适用场景：模型调工具后需要真实执行操作，
+ *         通过 foundTool.invoke(args) 触发函数执行。
+ * 
  * @see stream-tool-calls-raw.mjs     — 对比：原始方式直接读 tool_call_chunks
  * @see tool-calls-args.mjs           — 非流式版：通过 args 获取结构化结果
+ * @see test/all-tools.mjs            — 对比：tool() 定义带函数体的工具
  */
 import 'dotenv/config';
 import { ChatOpenAI } from '@langchain/openai';
@@ -61,6 +73,12 @@ try {
             const toolCall = chunk[0];
 
             // 获取当前工具调用的完整参数内容
+            // ⚠️ JsonOutputToolsParser 流式返回的每个 chunk 中，args 都是"当前累积的完整快照"而非增量
+            //    第1个 chunk: { name: "牛顿" }
+            //    第2个 chunk: { name: "牛顿", birth_year: 1643 }
+            //    第3个 chunk: { name: "牛顿", birth_year: 1643, nationality: "英国" }
+            //    如果直接 console.log(toolCall.args)，每次都会打印完整对象，看起来像不断重复
+            //    所以必须用长度对比的方式，只提取新增部分做增量输出
             const currentContent = JSON.stringify(toolCall.args || {}, null, 2);
 
             if (currentContent.length > lastContent.length) {

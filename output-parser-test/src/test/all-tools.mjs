@@ -4,7 +4,13 @@
  * 定义 4 个 LangChain Tool（read_file / write_file / execute_command / list_directory），
  * 供 Agent 运行时调用。使用 zod 定义参数 schema。
  * 
- * @see mini-cursor.mjs  — Agent 消费者：使用这些工具创建 TodoList 应用
+ * ══ tool() 带函数体 vs bindTools 只声明 schema ══
+ * tool() 同时声明了 schema + 函数体，模型调工具后可通过 foundTool.invoke(args) 执行。
+ * 对比 stream-tool-calls-parser.mjs 中的 bindTools：只传 { name, description, schema }，
+ * 不需要执行真实操作，仅用于让模型输出结构化数据。
+ * 
+ * @see mini-cursor.mjs                     — Agent 消费者：使用这些工具创建 TodoList 应用
+ * @see ../stream-tool-calls-parser.mjs — 对比：bindTools 只声明 schema，无函数体
  */
 import { tool } from '@langchain/core/tools';
 import fs from 'node:fs/promises';
