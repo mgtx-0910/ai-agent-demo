@@ -66,6 +66,8 @@ try {
 
     console.log("📡 实时输出流式内容:\n");
 
+    // for await...of 而非 for...of，因为 stream 是 AsyncIterable（异步可迭代对象）
+    // .stream() 返回的每个 chunk 是异步到达的，for await 会等下一个 chunk 到了再继续
     for await (const chunk of stream) {
         // console.log(chunk);
 
@@ -83,11 +85,11 @@ try {
 
             if (currentContent.length > lastContent.length) {
                 const newText = currentContent.slice(lastContent.length);
-                process.stdout.write(newText); // 实时输出到控制台
+                process.stdout.write('增量输出：' + newText); // 增量实时输出到控制台
                 lastContent = currentContent; // 更新已读进度
             }
 
-            console.log(toolCall.args);
+            console.log('\n全量输出：', toolCall.args); // 全量实时输出到控制台
         }
     }
 
