@@ -6,6 +6,9 @@
  *       完整演示了 RAG 的核心流程：检索 → 增强 → 生成。
  *
  * 流程：用户提问 → 向量化查询 → Milvus 语义检索 → 构建 Prompt → LLM 生成回答
+ *
+ * @see insert.mjs — 创建 ai_diary 集合并写入数据
+ * @see query.mjs  — 纯语义搜索版本（不含 LLM 生成）
  */
 
 import "dotenv/config";

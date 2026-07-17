@@ -7,6 +7,8 @@
  *   2. 将文档向量化并存入内存向量数据库（MemoryVectorStore）
  *   3. 根据用户问题检索最相关的文档片段
  *   4. 将检索到的上下文与问题一起发给 LLM 生成回答
+ *
+ * @see loader-and-splitter2.mjs — 进阶版：真实网页 + 完整 RAG 链路
  */
 
 // 加载 .env 环境变量（OPENAI_API_KEY、MODEL_NAME 等）

@@ -9,6 +9,8 @@
  *
  * 所有工具使用 LangChain 的 tool() 函数创建，通过 Zod 定义参数 schema。
  * 这些工具会被 mini-cursor.mjs 等 Agent 脚本导入使用。
+ *
+ * @see mini-cursor.mjs — 使用本文件工具集的 LLM Agent 演示
  */
 
 // LangChain 工具工厂函数

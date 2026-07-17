@@ -5,6 +5,9 @@
  *       把检索到的原文内容作为知识上下文，让 LLM 基于小说原文回答问题。
  *
  * 流程：用户提问 → 向量化 → Milvus 语义检索 → 构建上下文 Prompt → LLM 生成回答
+ *
+ * @see ebook-writer.mjs — 创建 ebook_collection 集合并入库电子书
+ * @see ebook-query.mjs  — 纯语义搜索版本（不含 LLM 生成）
  */
 
 import "dotenv/config";

@@ -9,6 +9,9 @@
  *   - 只连接一个 MCP 服务器（my-mcp-server）
  *   - 在对话中添加 MCP 资源作为 SystemMessage，让模型了解服务器能力
  *   - 更轻量，适合初次学习 MCP 集成
+ *
+ * @see mcp-test.mjs       — 多服务器 MCP 集成版本
+ * @see my-mcp-server.mjs  — 本文件依赖的 MCP 服务器实现
  */
 
 // 加载环境变量

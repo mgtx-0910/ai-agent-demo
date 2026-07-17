@@ -11,6 +11,9 @@
  *
  * 流程：
  *   - 初始化模型 → 连接所有 MCP 服务器 → 获取工具列表 → Agent 循环调用
+ *
+ * @see langchain-mcp-test.mjs — 单服务器轻量版 MCP 集成
+ * @see my-mcp-server.mjs      — 本文件依赖的 MCP 服务器实现
  */
 
 // 加载环境变量

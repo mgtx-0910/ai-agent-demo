@@ -5,6 +5,8 @@
  *       将自然语言问题向量化后，检索小说中最相关的内容片段。
  *
  * 流程：连接 Milvus → 加载集合 → 向量化查询 → TopK 搜索 → 打印结果
+ *
+ * @see ebook-writer.mjs — 创建 ebook_collection 集合并入库电子书
  */
 
 import "dotenv/config";

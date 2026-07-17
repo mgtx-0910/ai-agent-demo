@@ -11,6 +11,9 @@
  *   3. 向量化存入内存向量数据库（MemoryVectorStore）
  *   4. 根据问题检索相关文档块
  *   5. 用检索到的上下文增强 Prompt 交给 LLM 生成回答
+ *
+ * @see hello-rag.mjs          — 基础版 RAG：硬编码文档 + 内存向量存储
+ * @see loader-and-splitter.mjs — 前置简化版：仅加载和分割
  */
 
 // 加载环境变量

@@ -4,6 +4,8 @@
  * 功能：演示三种删除方式——按主键单条删除、按主键批量删除、按条件过滤删除
  *
  * 流程：连接 Milvus → 单条删除(id=diary_005) → 批量删除(id in [...]) → 条件删除(mood==sad)
+ *
+ * @see insert.mjs — 创建 ai_diary 集合并写入数据
  */
 
 import "dotenv/config";

@@ -5,6 +5,9 @@
  *       返回语义上最匹配的日记条目
  *
  * 流程：连接 Milvus → 向量化查询 → 搜索 TopK → 打印结果及相似度分数
+ *
+ * @see insert.mjs — 创建 ai_diary 集合并写入数据
+ * @see rag.mjs    — 基于搜索结果的 RAG 问答
  */
 
 import "dotenv/config";

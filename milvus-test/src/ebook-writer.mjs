@@ -7,6 +7,9 @@
  *
  * 流程：连接 Milvus → 创建/加载集合 → 解析 EPUB 按章节拆分 → 文本二次拆分 →
  *       逐章生成向量并批量插入 → 完成入库
+ *
+ * @see ebook-query.mjs      — 对入库电子书进行语义搜索
+ * @see ebook-reader-rag.mjs — 基于电子书内容的 RAG 问答
  */
 
 import "dotenv/config";

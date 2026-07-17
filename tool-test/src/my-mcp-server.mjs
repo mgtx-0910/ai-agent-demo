@@ -10,6 +10,9 @@
  *
  * 使用场景：在 Cursor/CodeBuddy 等 MCP Client 中配置后，
  *           可通过自然语言对话自动调用本服务器的工具
+ *
+ * @see mcp-test.mjs            — 多服务器 MCP 客户端测试
+ * @see langchain-mcp-test.mjs  — 单服务器 MCP 客户端测试
  */
 
 // MCP SDK：服务端核心 + stdio 传输层

@@ -15,6 +15,8 @@
  *   - write_file：创建/修改文件
  *   - execute_command：运行 shell 命令（npm、pnpm、node 等）
  *   - list_directory：浏览目录结构
+ *
+ * @see all-tools.mjs — 本文件依赖的 4 个工具定义
  */
 
 // 加载环境变量

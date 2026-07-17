@@ -6,6 +6,8 @@
  *       将 diary_001 的内容、心情、标签全部替换，并重新生成向量。
  *
  * 流程：连接 Milvus → 构建新数据 → 生成新向量 → upsert 写入
+ *
+ * @see insert.mjs — 创建 ai_diary 集合并写入数据
  */
 
 import "dotenv/config";

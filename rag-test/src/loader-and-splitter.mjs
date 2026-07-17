@@ -6,6 +6,8 @@
  *   1. 使用 CheerioWebBaseLoader 加载指定网页的正文内容
  *   2. 使用 RecursiveCharacterTextSplitter 按句子边界递归分割
  *   3. 输出分割后的文档块
+ *
+ * @see loader-and-splitter2.mjs — 进阶版：分割后向量化 + RAG 问答
  */
 
 // 加载环境变量

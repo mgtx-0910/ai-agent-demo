@@ -5,6 +5,11 @@
  *       将 5 条模拟日记文本向量化后批量写入 Milvus
  *
  * 流程：连接 Milvus → 创建集合 → 创建索引 → 加载集合 → 向量化 → 插入
+ *
+ * @see query.mjs  — 在 ai_diary 集合中执行语义搜索
+ * @see rag.mjs    — 基于 ai_diary 数据的 RAG 问答
+ * @see delete.mjs — 删除 ai_diary 集合中的数据
+ * @see update.mjs — 通过 upsert 更新 ai_diary 集合数据
  */
 
 import "dotenv/config";
