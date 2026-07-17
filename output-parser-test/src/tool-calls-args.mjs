@@ -1,3 +1,14 @@
+/**
+ * Tool Calls - 参数获取篇：非流式调用 + args
+ * 
+ * 通过 model.bindTools() 绑定 Zod Schema，invoke 后直接从
+ * response.tool_calls[0].args 获取结构化结果。
+ * 最简洁的 Tool Calls 用法，无需 parser。
+ * 
+ * @see with-structured-output.mjs   — 对比：withStructuredOutput 方式
+ * @see stream-tool-calls-raw.mjs    — 流式版：stream + tool_call_chunks
+ * @see stream-tool-calls-parser.mjs — 流式版：stream + parser
+ */
 import 'dotenv/config';
 import { ChatOpenAI } from '@langchain/openai';
 import { z } from 'zod';

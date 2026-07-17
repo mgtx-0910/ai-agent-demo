@@ -1,3 +1,13 @@
+/**
+ * 结构化输出 - withStructuredOutput 篇（非流式）
+ * 
+ * model.withStructuredOutput(schema).invoke() 最简洁的结构化输出方式。
+ * 返回值直接是解析好的对象（非文本），无需额外 parser 或手动 JSON.parse。
+ * 
+ * @see stream-with-structured-output.mjs — 流式版
+ * @see tool-calls-args.mjs               — 对比：Tool Calls + args 方式
+ * @see test/smart-import.mjs             — 实战应用：AI 提取 + 数据库写入
+ */
 import 'dotenv/config';
 import { ChatOpenAI } from '@langchain/openai';
 import { z } from 'zod';

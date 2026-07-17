@@ -1,3 +1,13 @@
+/**
+ * 流式输出 - 结构化篇：StructuredOutputParser + 流式
+ * 
+ * 在流式输出中使用 StructuredOutputParser + Zod Schema。
+ * 流式完成后将拼接的完整内容交给 parser 进行结构化解析。
+ * 
+ * @see stream-normal.mjs                — 基础版：流式无结构化
+ * @see stream-with-structured-output.mjs — 对比：withStructuredOutput 流式
+ * @see structured-output-parser2.mjs     — 非流式版：同类型 Schema
+ */
 import 'dotenv/config';
 import { ChatOpenAI } from '@langchain/openai';
 import { StructuredOutputParser } from '@langchain/core/output_parsers';

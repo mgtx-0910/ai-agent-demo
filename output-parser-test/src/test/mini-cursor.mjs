@@ -1,3 +1,13 @@
+/**
+ * Mini Agent：使用工具链创建 React TodoList 项目
+ * 
+ * 完整的 Agent 示例：绑定 4 个工具（来自 all-tools.mjs），通过 ReAct 循环
+ * （思考→工具调用→结果反馈）自动完成项目搭建、代码生成、依赖安装和启动。
+ * 包含流式 write_file 预览和错误处理。
+ * 
+ * @see all-tools.mjs     — 工具定义文件
+ * @see smart-import.mjs  — 同项目实战：AI + MySQL
+ */
 import 'dotenv/config';
 import { ChatOpenAI } from '@langchain/openai';
 import { HumanMessage, SystemMessage, ToolMessage } from '@langchain/core/messages';

@@ -1,3 +1,12 @@
+/**
+ * 数据库初始化：创建 friends 表并插入示例数据
+ * 
+ * 建库 hello → 建表 friends（name/gender/birth_date/company/title/phone/wechat），
+ * 然后插入一条 demo 数据（王经理）。
+ * 是 smart-import.mjs 的前置步骤。
+ * 
+ * @see smart-import.mjs — 数据消费者：AI 提取文本信息后写入此表
+ */
 import mysql from "mysql2/promise";
 
 async function main() {

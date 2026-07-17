@@ -1,3 +1,11 @@
+/**
+ * 工具集合：文件读写 + 命令执行 + 目录列出
+ * 
+ * 定义 4 个 LangChain Tool（read_file / write_file / execute_command / list_directory），
+ * 供 Agent 运行时调用。使用 zod 定义参数 schema。
+ * 
+ * @see mini-cursor.mjs  — Agent 消费者：使用这些工具创建 TodoList 应用
+ */
 import { tool } from '@langchain/core/tools';
 import fs from 'node:fs/promises';
 import path from 'node:path';

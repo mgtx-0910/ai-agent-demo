@@ -1,3 +1,13 @@
+/**
+ * 流式输出 - withStructuredOutput 篇
+ * 
+ * 使用 model.withStructuredOutput(schema) 进行流式调用。
+ * 每个 chunk 直接就是结构化对象（非文本），无需额外 parser。
+ * 
+ * @see with-structured-output.mjs        — 非流式版
+ * @see stream-structured-partial.mjs     — 对比：StructuredOutputParser 方式
+ * @see stream-tool-calls-parser.mjs      — 对比：Tool Calls parser 方式
+ */
 import 'dotenv/config';
 import { ChatOpenAI } from '@langchain/openai';
 import { z } from 'zod';

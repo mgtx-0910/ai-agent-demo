@@ -1,3 +1,14 @@
+/**
+ * 结构化输出 - fromZodSchema 进阶篇
+ * 
+ * StructuredOutputParser.fromZodSchema 完整演示，使用 Zod 定义复杂嵌套结构
+ * （含可选字段、数组、嵌套对象），parser 自动做类型验证。
+ * 如果模型返回格式不符合 Schema，会抛出 ZodError。
+ * 
+ * @see structured-output-parser.mjs   — 基础版：fromNamesAndDescriptions
+ * @see structured-json-schema.mjs    — 对比：原生 JSON Schema 方式
+ * @see stream-structured-partial.mjs — 流式版
+ */
 import 'dotenv/config';
 import { ChatOpenAI } from '@langchain/openai';
 import { StructuredOutputParser } from '@langchain/core/output_parsers';

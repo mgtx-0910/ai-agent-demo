@@ -1,3 +1,13 @@
+/**
+ * 结构化输出 - fromNamesAndDescriptions 篇
+ * 
+ * StructuredOutputParser.fromNamesAndDescriptions 最简方式：
+ * 用 key: 描述 的键值对定义字段，parser 自动生成格式化指令和解析。
+ * 适合简单结构，不需要 Zod。
+ * 
+ * @see structured-output-parser2.mjs  — 升级版：fromZodSchema 复杂结构 + 验证
+ * @see json-output-parser.mjs         — 同级：JsonOutputParser JSON 解析
+ */
 import 'dotenv/config';
 import { ChatOpenAI } from '@langchain/openai';
 import { StructuredOutputParser } from '@langchain/core/output_parsers';

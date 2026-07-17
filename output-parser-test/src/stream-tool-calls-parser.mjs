@@ -1,3 +1,12 @@
+/**
+ * 流式 Tool Calls - 解析篇：JsonOutputToolsParser
+ * 
+ * 流式 Tool Calls 场景，使用 JsonOutputToolsParser 增量解析 tool_calls 的 JSON 参数。
+ * 相比 raw 方式直接打印 chunk，parser 能解析完整的 args 对象做增量显示。
+ * 
+ * @see stream-tool-calls-raw.mjs     — 对比：原始方式直接读 tool_call_chunks
+ * @see tool-calls-args.mjs           — 非流式版：通过 args 获取结构化结果
+ */
 import 'dotenv/config';
 import { ChatOpenAI } from '@langchain/openai';
 import { JsonOutputToolsParser } from '@langchain/core/output_parsers/openai_tools';

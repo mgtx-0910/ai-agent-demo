@@ -1,3 +1,13 @@
+/**
+ * 结构化输出 - 原生 JSON Schema 篇
+ * 
+ * 将 Zod Schema 转换为原生 JSON Schema（zod-to-json-schema），
+ * 通过 modelKwargs.response_format 传递给模型（Qwen Max 的 json_schema 模式）。
+ * 这种方式不依赖 LangChain parser，直接由模型层面保证 JSON 格式。
+ * 
+ * @see structured-output-parser2.mjs  — 对比：Zod Schema + StructuredOutputParser
+ * @see structured-output-parser.mjs   — 对比：fromNamesAndDescriptions 方式
+ */
 import 'dotenv/config';
 import { ChatOpenAI } from '@langchain/openai';
 import chalk from 'chalk';

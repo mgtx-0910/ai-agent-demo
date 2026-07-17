@@ -1,3 +1,11 @@
+/**
+ * 输出解析 - 基础篇：手动解析
+ * 
+ * 直接调用模型要求返回 JSON，然后用 JSON.parse 手动解析。
+ * 缺点：模型不一定严格返回纯 JSON，可能带无关文字，解析容易报错。
+ * 
+ * @see json-output-parser.mjs  — 升级版：使用 JsonOutputParser 自动解析
+ */
 import 'dotenv/config';
 import { ChatOpenAI } from '@langchain/openai';
 

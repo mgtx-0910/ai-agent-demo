@@ -1,3 +1,12 @@
+/**
+ * 输出解析 - XMLOutputParser：解析 XML 格式
+ * 
+ * 使用 XMLOutputParser 让模型返回 XML 格式，parser 自动解析。
+ * 相比 JSON，XML 在某些场景（如文档结构化）更灵活。
+ * 
+ * @see json-output-parser.mjs         — 对比：JsonOutputParser
+ * @see structured-output-parser.mjs   — 对比：StructuredOutputParser
+ */
 import 'dotenv/config';
 import { ChatOpenAI } from '@langchain/openai';
 import { XMLOutputParser } from '@langchain/core/output_parsers';

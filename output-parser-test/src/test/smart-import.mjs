@@ -1,3 +1,12 @@
+/**
+ * Smart Import：AI 从自然语言提取信息 → 结构化写入 MySQL
+ * 
+ * 实战：使用 withStructuredOutput 从非结构化文本中提取多人信息，
+ * 并批量插入 friends 表。展示了 AI + Zod Schema + MySQL 的完整链路。
+ * 
+ * @see create-table.mjs            — 前置：建表脚本
+ * @see with-structured-output.mjs  — 核心技术：withStructuredOutput 结构化输出
+ */
 import 'dotenv/config';
 import { ChatOpenAI } from '@langchain/openai';
 import { z } from 'zod';

@@ -1,3 +1,12 @@
+/**
+ * 流式 Tool Calls - 原始篇：直接读取 tool_call_chunks
+ * 
+ * 流式 Tool Calls 的最基础用法：不借助任何 parser，直接从 chunk.tool_call_chunks
+ * 读取 args 字符串并实时打印。简单但无法做结构化处理。
+ * 
+ * @see stream-tool-calls-parser.mjs  — 升级版：使用 JsonOutputToolsParser 自动解析
+ * @see tool-calls-args.mjs           — 非流式版：invoke 后直接取 args
+ */
 import 'dotenv/config';
 import { ChatOpenAI } from '@langchain/openai';
 import { z } from 'zod';

@@ -1,3 +1,12 @@
+/**
+ * 输出解析 - JsonOutputParser：自动解析 JSON
+ * 
+ * 使用 LangChain 内置的 JsonOutputParser，自动处理格式化指令和结果解析。
+ * 对比 normal.mjs 手动解析，parser 会尝试从模型输出中提取纯 JSON。
+ * 
+ * @see normal.mjs                    — 基础版：手动 JSON.parse
+ * @see structured-output-parser.mjs  — 同级：StructuredOutputParser 按字段解析
+ */
 import 'dotenv/config';
 import { ChatOpenAI } from '@langchain/openai';
 import { JsonOutputParser } from '@langchain/core/output_parsers';
