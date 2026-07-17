@@ -128,7 +128,10 @@ ${conversationText}
 
 总结：`;
   
-  // SystemMessage 包裹总结指令
+  // 这里用 SystemMessage 而非 HumanMessage：
+  // - 总结是给模型的"任务指令"，不是用户对话内容
+  // - SystemMessage 在模型中通常有更高的优先级权重，确保指令被严格遵循
+  // - 如果用 HumanMessage，模型可能把指令误当作对话内容来回应，而非执行任务
   const summaryResponse = await model.invoke([new SystemMessage(summaryPrompt)]);
   return summaryResponse.content;
 }

@@ -35,7 +35,7 @@ const model = new ChatOpenAI({
   apiKey: process.env.OPENAI_API_KEY,
   temperature: 0,
   configuration: {
-      baseURL: process.env.OPENAI_BASE_URL,
+    baseURL: process.env.OPENAI_BASE_URL,
   },
 });
 
@@ -70,7 +70,7 @@ async function summarizationMemoryDemo() {
   const history = new InMemoryChatMessageHistory();
   const maxTokens = 200;        // 触发总结的 token 阈值
   const keepRecentTokens = 80;  // 保留最近消息的 token 预算
-  
+
   // 2. 初始化 tiktoken 编码器（cl100k_base = GPT-4/3.5 的 tokenizer）
   const enc = getEncoding("cl100k_base");
 
@@ -98,47 +98,47 @@ async function summarizationMemoryDemo() {
   }
 
   let allMessages = await history.getMessages();
-  
+
   const totalTokens = countTokens(allMessages, enc);
-  
+
   // ========== 5. 按 token 阈值判断是否触发总结 ==========
   if (totalTokens >= maxTokens) {
     // 5a. 从后往前遍历，保留最近的消息直到达到 keepRecentTokens 预算
     const recentMessages = [];
     let recentTokens = 0;
-    
+
     // 反向遍历：从最新消息开始累加
     for (let i = allMessages.length - 1; i >= 0; i--) {
       const msg = allMessages[i];
       const content = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
       const msgTokens = enc.encode(content).length;
-      
+
       // 如果加入当前消息仍未超过保留预算，则保留
       if (recentTokens + msgTokens <= keepRecentTokens) {
         recentMessages.unshift(msg); // unshift 保持原始时间顺序
         recentTokens += msgTokens;
       } else {
-        break; // 预算用完，停止保留
+        break; // 预算用完，停止保留, 终止整个循环
       }
     }
-    
+
     // 5b. 剩余的旧消息交给 LLM 总结
     const messagesToSummarize = allMessages.slice(0, allMessages.length - recentMessages.length);
     const summarizeTokens = countTokens(messagesToSummarize, enc);
-    
+
     console.log("\n💡 Token 数量超过阈值，开始总结...");
     console.log(`📝 将被总结的消息数量: ${messagesToSummarize.length} (${summarizeTokens} tokens)`);
     console.log(`📝 将被保留的消息数量: ${recentMessages.length} (${recentTokens} tokens)`);
-    
+
     // 5c. LLM 压缩旧消息
     const summary = await summarizeHistory(messagesToSummarize);
-    
+
     // 5d. 重建历史：清空后只写入保留的最近消息
     await history.clear();
     for (const msg of recentMessages) {
       await history.addMessage(msg);
     }
-    
+
     console.log(`\n保留消息数量: ${recentMessages.length}`);
     console.log("保留的消息:", recentMessages.map(m => {
       const content = typeof m.content === 'string' ? m.content : JSON.stringify(m.content);
@@ -156,18 +156,20 @@ summarizationMemoryDemo().catch(console.error);
 // 总结历史对话的函数
 async function summarizeHistory(messages) {
   if (messages.length === 0) return "";
-  
+
   const conversationText = getBufferString(messages, {
     humanPrefix: "用户",
     aiPrefix: "助手",
   });
-  
+
   const summaryPrompt = `请总结以下对话的核心内容，保留重要信息：
 
 ${conversationText}
 
 总结：`;
-  
+
+  // 用 SystemMessage 而非 HumanMessage：总结是给模型的"任务指令"，不是对话内容。
+  // SystemMessage 优先级更高，确保模型把它当作指令执行，而非当作对话来回应。
   const summaryResponse = await model.invoke([new SystemMessage(summaryPrompt)]);
   return summaryResponse.content;
 }
