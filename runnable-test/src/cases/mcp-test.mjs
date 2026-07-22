@@ -1,3 +1,13 @@
+/**
+ * Runnable 实战 - 基于 MCP 的多步 Agent（RunnableBranch 路由决策）
+ * 
+ * 通过 MCP Client 连接外部工具服务器，用 RunnableBranch 实现 Agent 决策循环：
+ *   prompt → model → RunnableBranch 判断：有 tool_calls → 执行工具 → 递归
+ *                                         无 tool_calls → 直接返回文本
+ * 核心展示了 RunnableBranch 作为 ReAct Agent 路由器的实际用法。
+ * 
+ * @see ../runnables/RunnableBranch.mjs  — 基础：RunnableBranch 条件分支原理
+ */
 import 'dotenv/config';
 import { MultiServerMCPClient } from '@langchain/mcp-adapters';
 import { ChatOpenAI } from '@langchain/openai';

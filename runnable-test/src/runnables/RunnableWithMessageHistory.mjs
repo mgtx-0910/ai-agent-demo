@@ -1,3 +1,14 @@
+/**
+ * RunnableWithMessageHistory - 自动注入和管理多轮对话历史
+ * 
+ * .withMessageHistory({ getMessageHistory }) 在每次 .invoke() 时自动：
+ *   1. 从 ChatMessageHistory 中读取历史消息
+ *   2. 将历史注入到 prompt 的 {history} 槽位（配合 MessagesPlaceholder）
+ *   3. 执行 chain 后将本次对话追加回历史存储
+ * 无需手动管理历史数组，自动实现带记忆的多轮对话。
+ * 
+ * @see ../../../prompt-template-test/src/messages-placeholder.mjs  — 基础：MessagesPlaceholder 占位原理
+ */
 import 'dotenv/config';
 import { RunnableWithMessageHistory } from "@langchain/core/runnables";
 import { InMemoryChatMessageHistory } from "@langchain/core/chat_history";
@@ -23,8 +34,10 @@ const prompt = ChatPromptTemplate.fromMessages([
   ["human", "{question}"],
 ]);
 
+// 数据流向：{question} → prompt（自动注入 history）→ model → StringOutputParser → 回答文本
 const simpleChain = prompt.pipe(model).pipe(new StringOutputParser());
 
+// 内存中的会话历史存储：Map<sessionId, ChatMessageHistory>
 const messageHistories = new Map();
 
 const getMessageHistory = (sessionId) => {
@@ -34,12 +47,12 @@ const getMessageHistory = (sessionId) => {
   return messageHistories.get(sessionId);
 };
 
-// 创建带消息历史的链
+// 创建带消息历史的链：每次 invoke 自动读写历史
 const chain = new RunnableWithMessageHistory({
-  runnable: simpleChain,
-  getMessageHistory: (sessionId) => getMessageHistory(sessionId),
-  inputMessagesKey: "question",
-  historyMessagesKey: "history",
+  runnable: simpleChain,                           // 底层 chain：prompt → model → parser
+  getMessageHistory: (sessionId) => getMessageHistory(sessionId), // 按 sessionId 获取历史
+  inputMessagesKey: "question",                    // 将输入中的 question 字段作为新的人类消息
+  historyMessagesKey: "history",                   // 历史消息注入到 prompt 的 {history} 占位符
 });
 
 // 测试：第一次对话

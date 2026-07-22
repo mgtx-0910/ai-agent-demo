@@ -1,3 +1,13 @@
+/**
+ * Runnable 实战 - 电子书 RAG 问答（RunnableSequence 构建 RAG 链路）
+ * 
+ * 完整 RAG 流程用 RunnableSequence 串联：Milvus 向量检索 →
+ * 组装 {context, question} → prompt → model → StringOutputParser。
+ * 使用 RunnableLambda 包装自定义逻辑（embedding + search + format），
+ * 展示了如何将外部向量库操作融入 LCEL 管道。
+ * 
+ * @see ../runnables/RunnableLambda.mjs  — 基础：RunnableLambda 包装自定义函数
+ */
 import "dotenv/config";
 import { ChatOpenAI, OpenAIEmbeddings } from "@langchain/openai";
 import { RunnableSequence, RunnableLambda } from "@langchain/core/runnables";
@@ -138,28 +148,29 @@ const buildPromptInput = new RunnableLambda({
   },
 });
 
-// 组合成完整的 RAG Runnable（检索 -> 构建 Prompt 输入 -> PromptTemplate -> LLM -> 文本）
+// 数据流向：{question, k} → 向量检索 → 格式化上下文 → 过滤空结果 → 拼 prompt → LLM → 纯文本回答
 const ragChain = RunnableSequence.from([
-  milvusSearch,
-  buildPromptInput,
+  milvusSearch,     // 1. 向量检索：question → embeddings → Milvus 搜索 → {question, retrievedContent}
+  buildPromptInput, // 2. 构建 Prompt 输入：格式化检索结果 → {hasContext, question, context, retrievedContent}
   new RunnableLambda({
     func: async (input) => {
       const { hasContext, question, context } = input;
 
       if (!hasContext) {
+        // 未检索到内容时返回兜底文案，跳过后续 prompt/model 步骤
         const fallback =
           "抱歉，我没有找到相关的《天龙八部》内容。请尝试换一个问题。";
         console.log(fallback);
         return { question, context: "", answer: fallback, noContext: true };
       }
 
-      // PromptTemplate 需要 { question, context }
+      // 有检索结果时，向 PromptTemplate 提供 { question, context }
       return { question, context, noContext: false };
     },
   }),
-  promptTemplate,
-  model,
-  new StringOutputParser(),
+  promptTemplate,   // 3. 填充 prompt：{question, context} → 完整的系统 prompt
+  model,            // 4. 调用 LLM：prompt → AIMessage
+  new StringOutputParser(), // 5. 提取纯文本：AIMessage → 最终回答字符串
 ]);
 
 
