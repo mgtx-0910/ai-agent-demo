@@ -1,6 +1,29 @@
 # LangChain 整体总结：AI Agent 第一阶段学习完成
 
+## 概述
 
+本文是以下 **7 个子项目** 的完整学习总结，覆盖了从工具调用到工业化流水线的全部实战：
+
+| 序号 | 子项目 | 创建时间 | 主题 |
+|------|--------|----------|------|
+| ① | `tool-test` | 2026-06-27 | Tool & MCP — Agent 工具调用 |
+| ② | `rag-test` | 2026-06-30 | RAG — 检索增强生成 |
+| ③ | `milvus-test` | 2026-07-10 | Milvus — 向量数据库 |
+| ④ | `memory-test` | 2026-07-15 | Memory — 对话记忆管理 |
+| ⑤ | `output-parser-test` | 2026-07-17 | OutputParser — 结构化输出 |
+| ⑥ | `prompt-template-test` | 2026-07-21 | PromptTemplate — 模块化 Prompt |
+| ⑦ | `runnable-test` | 2026-07-22 | LCEL — 声明式编排 |
+
+```
+06-27     06-30     07-10     07-15     07-17     07-21     07-22
+  │         │         │         │         │         │         │
+Tool&MCP → RAG → Milvus → Memory → OutputParser → PromptTemplate → LCEL
+  │         │         │         │         │         │         │
+  └─Agent    └─知识   └─向量DB  └─上下文  └─输出控制 └─输入控制 └─工业化
+   行动      增强                          (tool_call)
+```
+
+---
 
 ## 一、为什么要用 LangChain？
 
