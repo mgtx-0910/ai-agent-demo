@@ -262,16 +262,16 @@ const selector = new SemanticSimilarityExampleSelector({
 >
 > | 文件 | 说明 |
 > |------|------|
-> | [`prompt-template-test/src/chat-prompt-template.mjs`](prompt-template-test/src/chat-prompt-template.mjs) | ChatPromptTemplate 多角色消息 |
-> | [`prompt-template-test/src/pipeline-prompt-template.mjs`](prompt-template-test/src/pipeline-prompt-template.mjs) | PipelinePromptTemplate 模块化组合 |
-> | [`prompt-template-test/src/pipeline-prompt-template2.mjs`](prompt-template-test/src/pipeline-prompt-template2.mjs) | Pipeline 复用篇 |
-> | [`prompt-template-test/src/pipeline-prompt-template3.mjs`](prompt-template-test/src/pipeline-prompt-template3.mjs) | Pipeline 聊天格式篇 |
-> | [`prompt-template-test/src/fewshot-prompt-template.mjs`](prompt-template-test/src/fewshot-prompt-template.mjs) | FewShotPromptTemplate |
-> | [`prompt-template-test/src/fewshot-chat-prompt-template.mjs`](prompt-template-test/src/fewshot-chat-prompt-template.mjs) | FewShotChatMessagePromptTemplate |
-> | [`prompt-template-test/src/example-selector1.mjs`](prompt-template-test/src/example-selector1.mjs) | LengthBasedExampleSelector |
-> | [`prompt-template-test/src/example-selector2.mjs`](prompt-template-test/src/example-selector2.mjs) | SemanticSimilarityExampleSelector |
-> | [`prompt-template-test/src/messages-placeholder.mjs`](prompt-template-test/src/messages-placeholder.mjs) | MessagesPlaceholder 动态注入 |
-> | [`prompt-template-test/src/partial.mjs`](prompt-template-test/src/partial.mjs) | .partial() 预填变量 |
+> | [`prompt-template-test/src/chat-prompt-template.mjs`](../prompt-template-test/src/chat-prompt-template.mjs) | ChatPromptTemplate 多角色消息 |
+> | [`prompt-template-test/src/pipeline-prompt-template.mjs`](../prompt-template-test/src/pipeline-prompt-template.mjs) | PipelinePromptTemplate 模块化组合 |
+> | [`prompt-template-test/src/pipeline-prompt-template2.mjs`](../prompt-template-test/src/pipeline-prompt-template2.mjs) | Pipeline 复用篇 |
+> | [`prompt-template-test/src/pipeline-prompt-template3.mjs`](../prompt-template-test/src/pipeline-prompt-template3.mjs) | Pipeline 聊天格式篇 |
+> | [`prompt-template-test/src/fewshot-prompt-template.mjs`](../prompt-template-test/src/fewshot-prompt-template.mjs) | FewShotPromptTemplate |
+> | [`prompt-template-test/src/fewshot-chat-prompt-template.mjs`](../prompt-template-test/src/fewshot-chat-prompt-template.mjs) | FewShotChatMessagePromptTemplate |
+> | [`prompt-template-test/src/example-selector1.mjs`](../prompt-template-test/src/example-selector1.mjs) | LengthBasedExampleSelector |
+> | [`prompt-template-test/src/example-selector2.mjs`](../prompt-template-test/src/example-selector2.mjs) | SemanticSimilarityExampleSelector |
+> | [`prompt-template-test/src/messages-placeholder.mjs`](../prompt-template-test/src/messages-placeholder.mjs) | MessagesPlaceholder 动态注入 |
+> | [`prompt-template-test/src/partial.mjs`](../prompt-template-test/src/partial.mjs) | .partial() 预填变量 |
 
 ---
 
@@ -379,18 +379,18 @@ for await (const chunk of stream) {
 >
 > | 文件 | 说明 |
 > |------|------|
-> | [`output-parser-test/src/with-structured-output.mjs`](output-parser-test/src/with-structured-output.mjs) | withStructuredOutput 非流式 |
-> | [`output-parser-test/src/stream-with-structured-output.mjs`](output-parser-test/src/stream-with-structured-output.mjs) | withStructuredOutput 流式 |
-> | [`output-parser-test/src/stream-tool-calls-parser.mjs`](output-parser-test/src/stream-tool-calls-parser.mjs) | JsonOutputToolsParser 流式解析 |
-> | [`output-parser-test/src/stream-tool-calls-raw.mjs`](output-parser-test/src/stream-tool-calls-raw.mjs) | 原始 tool_call_chunks 方式 |
-> | [`output-parser-test/src/tool-calls-args.mjs`](output-parser-test/src/tool-calls-args.mjs) | bindTools + args 非流式 |
-> | [`output-parser-test/src/json-output-parser.mjs`](output-parser-test/src/json-output-parser.mjs) | JsonOutputParser |
-> | [`output-parser-test/src/xml-output-parser.mjs`](output-parser-test/src/xml-output-parser.mjs) | XMLOutputParser |
-> | [`output-parser-test/src/structured-output-parser.mjs`](output-parser-test/src/structured-output-parser.mjs) | fromNamesAndDescriptions |
-> | [`output-parser-test/src/structured-output-parser2.mjs`](output-parser-test/src/structured-output-parser2.mjs) | fromZodSchema 嵌套结构 |
-> | [`output-parser-test/src/structured-json-schema.mjs`](output-parser-test/src/structured-json-schema.mjs) | 原生 JSON Schema |
-> | [`output-parser-test/src/test/smart-import.mjs`](output-parser-test/src/test/smart-import.mjs) | 实战：AI 数据录入 |
-> | [`output-parser-test/src/test/mini-cursor.mjs`](output-parser-test/src/test/mini-cursor.mjs) | 实战：流式 mini cursor |
+> | [`output-parser-test/src/with-structured-output.mjs`](../output-parser-test/src/with-structured-output.mjs) | withStructuredOutput 非流式 |
+> | [`output-parser-test/src/stream-with-structured-output.mjs`](../output-parser-test/src/stream-with-structured-output.mjs) | withStructuredOutput 流式 |
+> | [`output-parser-test/src/stream-tool-calls-parser.mjs`](../output-parser-test/src/stream-tool-calls-parser.mjs) | JsonOutputToolsParser 流式解析 |
+> | [`output-parser-test/src/stream-tool-calls-raw.mjs`](../output-parser-test/src/stream-tool-calls-raw.mjs) | 原始 tool_call_chunks 方式 |
+> | [`output-parser-test/src/tool-calls-args.mjs`](../output-parser-test/src/tool-calls-args.mjs) | bindTools + args 非流式 |
+> | [`output-parser-test/src/json-output-parser.mjs`](../output-parser-test/src/json-output-parser.mjs) | JsonOutputParser |
+> | [`output-parser-test/src/xml-output-parser.mjs`](../output-parser-test/src/xml-output-parser.mjs) | XMLOutputParser |
+> | [`output-parser-test/src/structured-output-parser.mjs`](../output-parser-test/src/structured-output-parser.mjs) | fromNamesAndDescriptions |
+> | [`output-parser-test/src/structured-output-parser2.mjs`](../output-parser-test/src/structured-output-parser2.mjs) | fromZodSchema 嵌套结构 |
+> | [`output-parser-test/src/structured-json-schema.mjs`](../output-parser-test/src/structured-json-schema.mjs) | 原生 JSON Schema |
+> | [`output-parser-test/src/test/smart-import.mjs`](../output-parser-test/src/test/smart-import.mjs) | 实战：AI 数据录入 |
+> | [`output-parser-test/src/test/mini-cursor.mjs`](../output-parser-test/src/test/mini-cursor.mjs) | 实战：流式 mini cursor |
 
 ---
 
@@ -510,13 +510,13 @@ const modelWithTools = model.bindTools(tools);
 >
 > | 文件 | 说明 |
 > |------|------|
-> | [`tool-test/src/all-tools.mjs`](tool-test/src/all-tools.mjs) | 自定义 4 个 LangChain tool |
-> | [`tool-test/src/langchain-mcp-test.mjs`](tool-test/src/langchain-mcp-test.mjs) | LangChain 集成 MCP |
-> | [`tool-test/src/mcp-test.mjs`](tool-test/src/mcp-test.mjs) | 多服务器 MCP 集成 |
-> | [`tool-test/src/my-mcp-server.mjs`](tool-test/src/my-mcp-server.mjs) | MCP Server 实现 |
-> | [`tool-test/src/mini-cursor.mjs`](tool-test/src/mini-cursor.mjs) | Agent 调用工具集 |
-> | [`tool-test/src/tool-file-read.mjs`](tool-test/src/tool-file-read.mjs) | 文件读取工具入门 |
-> | [`output-parser-test/src/tool-calls-args.mjs`](output-parser-test/src/tool-calls-args.mjs) | bindTools + 直接从 args 取结果 |
+> | [`tool-test/src/all-tools.mjs`](../tool-test/src/all-tools.mjs) | 自定义 4 个 LangChain tool |
+> | [`tool-test/src/langchain-mcp-test.mjs`](../tool-test/src/langchain-mcp-test.mjs) | LangChain 集成 MCP |
+> | [`tool-test/src/mcp-test.mjs`](../tool-test/src/mcp-test.mjs) | 多服务器 MCP 集成 |
+> | [`tool-test/src/my-mcp-server.mjs`](../tool-test/src/my-mcp-server.mjs) | MCP Server 实现 |
+> | [`tool-test/src/mini-cursor.mjs`](../tool-test/src/mini-cursor.mjs) | Agent 调用工具集 |
+> | [`tool-test/src/tool-file-read.mjs`](../tool-test/src/tool-file-read.mjs) | 文件读取工具入门 |
+> | [`output-parser-test/src/tool-calls-args.mjs`](../output-parser-test/src/tool-calls-args.mjs) | bindTools + 直接从 args 取结果 |
 
 ---
 
@@ -564,10 +564,10 @@ await history.addMessage(response2);
 >
 > | 文件 | 说明 |
 > |------|------|
-> | [`memory-test/src/history-test.mjs`](memory-test/src/history-test.mjs) | InMemoryChatMessageHistory 内存存储 |
-> | [`memory-test/src/history-test2.mjs`](memory-test/src/history-test2.mjs) | FileSystemChatMessageHistory 文件存储 |
-> | [`memory-test/src/history-test3.mjs`](memory-test/src/history-test3.mjs) | RunnableWithMessageHistory + memory 策略 |
-> | [`memory-test/src/memory/`](memory-test/src/memory/) | Memory 管理策略实现 |
+> | [`memory-test/src/history-test.mjs`](../memory-test/src/history-test.mjs) | InMemoryChatMessageHistory 内存存储 |
+> | [`memory-test/src/history-test2.mjs`](../memory-test/src/history-test2.mjs) | FileSystemChatMessageHistory 文件存储 |
+> | [`memory-test/src/history-test3.mjs`](../memory-test/src/history-test3.mjs) | RunnableWithMessageHistory + memory 策略 |
+> | [`memory-test/src/memory/`](../memory-test/src/memory/) | Memory 管理策略实现 |
 
 ---
 
@@ -645,10 +645,10 @@ import { Milvus } from '@langchain/community/vectorstores/milvus';
 >
 > | 文件 | 说明 |
 > |------|------|
-> | [`rag-test/src/hello-rag.mjs`](rag-test/src/hello-rag.mjs) | RAG 入门：MemoryVectorStore 完整流程 |
-> | [`rag-test/src/loader-and-splitter.mjs`](rag-test/src/loader-and-splitter.mjs) | Loader + Splitter 文档预处理 |
-> | [`rag-test/src/loader-and-splitter2.mjs`](rag-test/src/loader-and-splitter2.mjs) | 真实网页 + 完整 RAG 链路 |
-> | [`milvus-test/`](milvus-test/) | Milvus 向量数据库实战 |
+> | [`rag-test/src/hello-rag.mjs`](../rag-test/src/hello-rag.mjs) | RAG 入门：MemoryVectorStore 完整流程 |
+> | [`rag-test/src/loader-and-splitter.mjs`](../rag-test/src/loader-and-splitter.mjs) | Loader + Splitter 文档预处理 |
+> | [`rag-test/src/loader-and-splitter2.mjs`](../rag-test/src/loader-and-splitter2.mjs) | 真实网页 + 完整 RAG 链路 |
+> | [`milvus-test/`](../milvus-test/) | Milvus 向量数据库实战 |
 
 ---
 
@@ -749,10 +749,10 @@ const result = await chain.invoke(input);
 >
 > | 文件 | 说明 |
 > |------|------|
-> | [`runnable-test/src/before.mjs`](runnable-test/src/before.mjs) | 对照版：没有 Runnable 的手动调用 |
-> | [`runnable-test/src/runnable.mjs`](runnable-test/src/runnable.mjs) | RunnableSequence 入门 |
-> | [`runnable-test/src/runnables/`](runnable-test/src/runnables/) | 12 个 Runnable API 实战 |
-> | [`runnable-test/src/cases/`](runnable-test/src/cases/) | 综合案例 |
+> | [`runnable-test/src/before.mjs`](../runnable-test/src/before.mjs) | 对照版：没有 Runnable 的手动调用 |
+> | [`runnable-test/src/runnable.mjs`](../runnable-test/src/runnable.mjs) | RunnableSequence 入门 |
+> | [`runnable-test/src/runnables/`](../runnable-test/src/runnables/) | 12 个 Runnable API 实战 |
+> | [`runnable-test/src/cases/`](../runnable-test/src/cases/) | 综合案例 |
 
 ---
 
