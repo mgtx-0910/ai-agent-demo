@@ -4,6 +4,18 @@ import { z } from 'zod';
 import { UsersService } from '../users/users.service';
 import { CreateUserDto } from '../users/dto/create-user.dto';
 
+/**
+ * DbUsersCrudToolService — 数据库用户 CRUD 工具
+ *
+ * 封装 LangChain StructuredTool，支持对 MySQL users 表执行五种操作：
+ * - create：创建新用户（name + email）
+ * - list：列出所有用户
+ * - get：按 ID 查询单个用户
+ * - update：按 ID 更新用户信息
+ * - delete：按 ID 删除用户
+ *
+ * 底层委托给 UsersService（TypeORM EntityManager），直接操作数据库。
+ */
 @Injectable()
 export class DbUsersCrudToolService {
   readonly tool: StructuredTool;

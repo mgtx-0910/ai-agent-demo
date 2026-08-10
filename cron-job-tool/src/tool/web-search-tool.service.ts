@@ -24,6 +24,15 @@ interface BochaApiResponse {
   };
 }
 
+/**
+ * WebSearchToolService — 网络搜索工具
+ *
+ * 封装 LangChain StructuredTool，调用 Bocha Web Search API 搜索互联网网页。
+ * 支持 query（搜索关键词）和 count（返回数量，默认 10）参数。
+ * 返回格式化的搜索结果（标题、URL、摘要、网站名称、图标、发布时间）。
+ *
+ * 环境变量 BOCHA_API_KEY 从 ConfigService 读取。
+ */
 @Injectable()
 export class WebSearchToolService {
   readonly tool: StructuredTool;

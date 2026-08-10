@@ -7,6 +7,16 @@ import { UserService } from './user.service';
 import { UsersModule } from '../users/users.module';
 import { ToolModule } from '../tool/tool.module';
 
+/**
+ * AiModule — AI 对话模块
+ *
+ * 导入 UsersModule（数据库用户 CRUD）和 ToolModule（所有 LangChain 工具），
+ * 注册 AiService、UserService（内存版），以及 QUERY_USER_TOOL（内联工具）。
+ *
+ * QUERY_USER_TOOL 是一个通过工厂函数创建的自定义 Provider，
+ * 封装了通过 userId 查询内存用户数据的 LangChain tool，
+ * AiService 通过 @Inject('QUERY_USER_TOOL') 注入使用。
+ */
 @Module({
   imports: [UsersModule, ToolModule],
   controllers: [AiController],
@@ -21,7 +31,7 @@ import { ToolModule } from '../tool/tool.module';
         });
 
         return tool(
-          async ({ userId }: { userId: string }) => {
+          ({ userId }: { userId: string }) => {
             const user = userService.findOne(userId);
 
             if (!user) {

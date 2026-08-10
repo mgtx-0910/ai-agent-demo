@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { ChatOpenAI } from '@langchain/openai';
+import type { ChatOpenAI } from '@langchain/openai';
 import {
   AIMessage,
   AIMessageChunk,
@@ -8,7 +8,8 @@ import {
   SystemMessage,
   ToolMessage,
 } from '@langchain/core/messages';
-import { Runnable } from '@langchain/core/runnables';
+import type { Runnable } from '@langchain/core/runnables';
+import type { StructuredToolInterface } from '@langchain/core/tools';
 
 /**
  * 下面是最初版本的内联工具定义，只是保留做参考，不再实际使用。
@@ -48,18 +49,34 @@ import { Runnable } from '@langchain/core/runnables';
  * );
  */
 
+/**
+ * AiService — 核心 AI 对话服务
+ *
+ * 注入 6 个工具（query_user / send_mail / web_search / db_users_crud / time_now / cron_job）
+ * 并绑定到 ChatOpenAI 模型，实现 ReAct 循环（思考 → 工具调用 → 反馈 → 再思考）。
+ *
+ * 提供两种对话方式：
+ * - runChain(query)：普通调用，循环处理直到 AI 输出最终答案
+ * - runChainStream(query)：流式调用，通过 AsyncGenerator 逐块 yield 文本
+ */
 @Injectable()
 export class AiService {
   private readonly modelWithTools: Runnable<BaseMessage[], AIMessage>;
 
   constructor(
     @Inject('CHAT_MODEL') model: ChatOpenAI,
-    @Inject('QUERY_USER_TOOL') private readonly queryUserTool: any,
-    @Inject('SEND_MAIL_TOOL') private readonly sendMailTool: any,
-    @Inject('WEB_SEARCH_TOOL') private readonly webSearchTool: any,
-    @Inject('DB_USERS_CRUD_TOOL') private readonly dbUsersCrudTool: any,
-    @Inject('TIME_NOW_TOOL') private readonly timeNowTool: any,
-    @Inject('CRON_JOB_TOOL') private readonly cronJobTool: any,
+    @Inject('QUERY_USER_TOOL')
+    private readonly queryUserTool: StructuredToolInterface,
+    @Inject('SEND_MAIL_TOOL')
+    private readonly sendMailTool: StructuredToolInterface,
+    @Inject('WEB_SEARCH_TOOL')
+    private readonly webSearchTool: StructuredToolInterface,
+    @Inject('DB_USERS_CRUD_TOOL')
+    private readonly dbUsersCrudTool: StructuredToolInterface,
+    @Inject('TIME_NOW_TOOL')
+    private readonly timeNowTool: StructuredToolInterface,
+    @Inject('CRON_JOB_TOOL')
+    private readonly cronJobTool: StructuredToolInterface,
   ) {
     this.modelWithTools = model.bindTools([
       this.queryUserTool,
@@ -71,23 +88,35 @@ export class AiService {
     ]);
   }
 
+  /**
+   * 普通对话（非流式）
+   *
+   * ReAct 循环流程：
+   * 1. 构造 SystemMessage（工具说明 + 行为规则）+ HumanMessage（用户问题）
+   * 2. 调用 modelWithTools.invoke(messages)
+   * 3. 如果 AI 没有 tool_calls → 直接返回 content
+   * 4. 如果有 tool_calls → 逐个执行工具，将结果作为 ToolMessage 追加到消息列表
+   * 5. 回到步骤 2，直到 AI 输出最终答案
+   *
+   * @param query 用户提问的自然语言文本
+   */
   async runChain(query: string): Promise<string> {
     const messages: BaseMessage[] = [
       new SystemMessage(
         `你是一个通用任务助手，可以根据用户的目标规划步骤，并在需要时调用工具：\`query_user\` 查询或校验用户信息、\`send_mail\` 发送邮件、\`web_search\` 进行互联网搜索、\`db_users_crud\` 读写数据库 users 表、\`time_now\` 获取当前服务器时间、\`cron_job\` 创建和管理定时/周期任务（\`list\`/\`add\`/\`toggle\`），从而实现提醒、定期任务、数据同步等各种自动化需求。
 
 定时任务类型选择规则（非常重要）：
-- 用户说“X分钟/小时/天后”“在某个时间点”“到点提醒”（一次性）=> 用 \`cron_job\` + \`type=at\`（执行一次后自动停用），\`at\`=当前时间+X 或解析出的时间点
-- 用户说“每X分钟/每小时/每天”“定期/循环/一直”（重复执行）=> 用 \`cron_job\` + \`type=every\`（每次执行），\`everyMs\`=X换算成毫秒
-- 用户给出 Cron 表达式或明确说“用 cron 表达式”（重复执行）=> 用 \`cron_job\` + \`type=cron\`
+- 用户说"X分钟/小时/天后""在某个时间点""到点提醒"（一次性）=> 用 \`cron_job\` + \`type=at\`（执行一次后自动停用），\`at\`=当前时间+X 或解析出的时间点
+- 用户说"每X分钟/每小时/每天""定期/循环/一直"（重复执行）=> 用 \`cron_job\` + \`type=every\`（每次执行），\`everyMs\`=X换算成毫秒
+- 用户给出 Cron 表达式或明确说"用 cron 表达式"（重复执行）=> 用 \`cron_job\` + \`type=cron\`
 
-在调用 \`cron_job.add\` 创建任务时，需要把用户原始自然语言拆成两部分：一部分是“什么时候执行”（用来决定 type/at/everyMs/cron），另一部分是“要做什么任务本身”。\`instruction\` 字段只能填“要做什么”的那部分文本（保持原语言和原话），不能再改写、翻译或总结。
+在调用 \`cron_job.add\` 创建任务时，需要把用户原始自然语言拆成两部分：一部分是"什么时候执行"（用来决定 type/at/everyMs/cron），另一部分是"要做什么任务本身"。\`instruction\` 字段只能填"要做什么"的那部分文本（保持原语言和原话），不能再改写、翻译或总结。
 
-当用户请求“在未来某个时间点执行某个动作”（例如“1分钟后给我发一个笑话到邮箱”）时，本轮对话只需要使用 \`cron_job\` 设置/更新定时任务，不要在当前轮直接完成这个动作本身：不要直接调用 \`send_mail\` 给他发邮件，也不要在当前轮就真正“执行”指令，只需把要执行的动作写进 \`instruction\` 里，交给将来的定时任务去跑。
+当用户请求"在未来某个时间点执行某个动作"（例如"1分钟后给我发一个笑话到邮箱"）时，本轮对话只需要使用 \`cron_job\` 设置/更新定时任务，不要在当前轮直接完成这个动作本身：不要直接调用 \`send_mail\` 给他发邮件，也不要在当前轮就真正"执行"指令，只需把要执行的动作写进 \`instruction\` 里，交给将来的定时任务去跑。
 
 重要：\`cron_job.add\` 的 \`instruction\` 必须是自然语言任务描述，不能写成工具调用/脚本（例如禁止 \`send_mail(...)\`、\`db_users_crud(...)\`、\`web_search(...)\`）。工具调用应该由将来的 JobAgent 在执行时自行决定。
 
-注意：像“\`1分钟后提醒我喝水\`”，时间相关信息用于计算下一次执行时间，而 \`instruction\` 应该是“提醒我喝水”；本轮不需要立刻提醒。`,
+注意：像"\`1分钟后提醒我喝水\`"，时间相关信息用于计算下一次执行时间，而 \`instruction\` 应该是"提醒我喝水"；本轮不需要立刻提醒。`,
       ),
       new HumanMessage(query),
     ];
@@ -109,7 +138,9 @@ export class AiService {
         const toolName = toolCall.name;
 
         if (toolName === 'query_user') {
-          const result = await this.queryUserTool.invoke(toolCall.args);
+          const result = (await this.queryUserTool.invoke(
+            toolCall.args,
+          )) as unknown as string;
 
           messages.push(
             new ToolMessage({
@@ -119,7 +150,9 @@ export class AiService {
             }),
           );
         } else if (toolName === 'send_mail') {
-          const result = await this.sendMailTool.invoke(toolCall.args);
+          const result = (await this.sendMailTool.invoke(
+            toolCall.args,
+          )) as unknown as string;
 
           messages.push(
             new ToolMessage({
@@ -129,7 +162,9 @@ export class AiService {
             }),
           );
         } else if (toolName === 'web_search') {
-          const result = await this.webSearchTool.invoke(toolCall.args);
+          const result = (await this.webSearchTool.invoke(
+            toolCall.args,
+          )) as unknown as string;
 
           messages.push(
             new ToolMessage({
@@ -139,7 +174,9 @@ export class AiService {
             }),
           );
         } else if (toolName === 'db_users_crud') {
-          const result = await this.dbUsersCrudTool.invoke(toolCall.args);
+          const result = (await this.dbUsersCrudTool.invoke(
+            toolCall.args,
+          )) as unknown as string;
 
           messages.push(
             new ToolMessage({
@@ -149,17 +186,21 @@ export class AiService {
             }),
           );
         } else if (toolName === 'time_now') {
-          const result = await this.timeNowTool.invoke({});
+          const result = (await this.timeNowTool.invoke(
+            {},
+          )) as unknown as string;
 
           messages.push(
             new ToolMessage({
               tool_call_id: toolCallId,
               name: toolName,
-              content: JSON.stringify(result),
+              content: result,
             }),
           );
         } else if (toolName === 'cron_job') {
-          const result = await this.cronJobTool.invoke(toolCall.args);
+          const result = (await this.cronJobTool.invoke(
+            toolCall.args,
+          )) as unknown as string;
 
           messages.push(
             new ToolMessage({
@@ -173,14 +214,26 @@ export class AiService {
     }
   }
 
+  /**
+   * 流式对话（SSE）
+   *
+   * 与 runChain 相同的 ReAct 循环，但使用 AsyncGenerator 逐块 yield 文本：
+   * 1. 使用 modelWithTools.stream() 获取流式响应
+   * 2. 使用 for-await-of 消费每个 AIMessageChunk
+   * 3. 只要当前轮次未出现 tool_call_chunks，就将 content 流式 yield 给前端
+   * 4. 出现 tool_calls 后停止输出，执行工具，ToolMessage 加入消息列表
+   * 5. 回到步骤 1，直到 AI 输出最终答案
+   *
+   * @param query 用户提问的自然语言文本
+   */
   async *runChainStream(query: string): AsyncIterable<string> {
     const messages: BaseMessage[] = [
       new SystemMessage(
         `你是一个通用任务助手，可以在需要时调用工具（如 \`query_user\`、\`db_users_crud\`、\`send_mail\`、\`web_search\`、\`time_now\`、\`cron_job\` 等）来查询或改写数据/配置，规划并执行各种任务（包括提醒、定期任务和一系列后台操作），再用结果回答用户的问题。
 
 定时任务类型选择规则（非常重要）：
-- “X分钟/小时/天后”“在某个时间点”“到点提醒”（一次性）=> \`cron_job.type=at\`（执行一次后自动停用）
-- “每X分钟/每小时/每天”“定期/循环/一直”（重复执行）=> \`cron_job.type=every\`（每次执行），\`everyMs\`=毫秒
+- "X分钟/小时/天后""在某个时间点""到点提醒"（一次性）=> \`cron_job.type=at\`（执行一次后自动停用）
+- "每X分钟/每小时/每天""定期/循环/一直"（重复执行）=> \`cron_job.type=every\`（每次执行），\`everyMs\`=毫秒
 - 给出 Cron 表达式 => \`cron_job.type=cron\``,
       ),
       new HumanMessage(query),
@@ -192,19 +245,6 @@ export class AiService {
 
       let fullAIMessage: AIMessageChunk | null = null;
 
-      //   for await (const chunk of stream as AsyncIterable<AIMessageChunk>) {
-      //     // 使用 concat 持续拼接，得到本轮完整的 AIMessageChunk
-      //     fullAIMessage = fullAIMessage ? fullAIMessage.concat(chunk) : chunk;
-
-      //     const hasToolCallChunk =
-      //       !!fullAIMessage.tool_call_chunks &&
-      //       fullAIMessage.tool_call_chunks.length > 0;
-
-      //     // 只要当前轮次还没出现 tool 调用的 chunk，就可以把文本内容流式往外推
-      //     if (!hasToolCallChunk && chunk.content) {
-      //         yield chunk.content as string
-      //     }
-      //   }
       for await (const chunk of stream as AsyncIterable<AIMessageChunk>) {
         fullAIMessage = fullAIMessage ? fullAIMessage.concat(chunk) : chunk;
 
@@ -236,7 +276,9 @@ export class AiService {
         const toolName = toolCall.name;
 
         if (toolName === 'query_user') {
-          const result = await this.queryUserTool.invoke(toolCall.args);
+          const result = (await this.queryUserTool.invoke(
+            toolCall.args,
+          )) as unknown as string;
 
           messages.push(
             new ToolMessage({
@@ -246,7 +288,9 @@ export class AiService {
             }),
           );
         } else if (toolName === 'send_mail') {
-          const result = await this.sendMailTool.invoke(toolCall.args);
+          const result = (await this.sendMailTool.invoke(
+            toolCall.args,
+          )) as unknown as string;
 
           messages.push(
             new ToolMessage({
@@ -256,7 +300,9 @@ export class AiService {
             }),
           );
         } else if (toolName === 'web_search') {
-          const result = await this.webSearchTool.invoke(toolCall.args);
+          const result = (await this.webSearchTool.invoke(
+            toolCall.args,
+          )) as unknown as string;
 
           messages.push(
             new ToolMessage({
@@ -266,7 +312,9 @@ export class AiService {
             }),
           );
         } else if (toolName === 'db_users_crud') {
-          const result = await this.dbUsersCrudTool.invoke(toolCall.args);
+          const result = (await this.dbUsersCrudTool.invoke(
+            toolCall.args,
+          )) as unknown as string;
 
           messages.push(
             new ToolMessage({
@@ -276,17 +324,21 @@ export class AiService {
             }),
           );
         } else if (toolName === 'time_now') {
-          const result = await this.timeNowTool.invoke({});
+          const result = (await this.timeNowTool.invoke(
+            {},
+          )) as unknown as string;
 
           messages.push(
             new ToolMessage({
               tool_call_id: toolCallId,
               name: toolName,
-              content: JSON.stringify(result),
+              content: result,
             }),
           );
         } else if (toolName === 'cron_job') {
-          const result = await this.cronJobTool.invoke(toolCall.args);
+          const result = (await this.cronJobTool.invoke(
+            toolCall.args,
+          )) as unknown as string;
 
           messages.push(
             new ToolMessage({

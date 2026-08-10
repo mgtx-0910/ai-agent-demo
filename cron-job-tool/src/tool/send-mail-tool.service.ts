@@ -4,6 +4,19 @@ import { MailerService } from '@nestjs-modules/mailer';
 import { tool, StructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 
+/**
+ * SendMailToolService — 邮件发送工具
+ *
+ * 封装 LangChain StructuredTool，底层通过 @nestjs-modules/mailer 的 MailerService
+ * 发送邮件。AI Agent 调用 send_mail 工具时自动触发。
+ *
+ * 参数：
+ * - to：收件人邮箱
+ * - subject：邮件主题
+ * - text / html：邮件内容（可选，二选一或都填）
+ *
+ * 发件人地址从 .env 的 MAIL_FROM 读取，作为兜底。
+ */
 @Injectable()
 export class SendMailToolService {
   readonly tool: StructuredTool;

@@ -1,6 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { tool, StructuredTool } from '@langchain/core/tools';
 
+/**
+ * TimeNowToolService — 获取服务器时间工具
+ *
+ * 封装 LangChain StructuredTool，无需参数，
+ * 返回 ISO 时间字符串（iso）和毫秒级时间戳（timestamp）。
+ * 同步操作，非常轻量。
+ */
 @Injectable()
 export class TimeNowToolService {
   readonly tool: StructuredTool;

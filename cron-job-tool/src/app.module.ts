@@ -14,9 +14,26 @@ import { CronExpression, ScheduleModule, SchedulerRegistry } from '@nestjs/sched
 import { JobModule } from './job/job.module';
 import { CronJob } from 'cron';
 
+/**
+ * AppModule — 应用根模块
+ *
+ * 集中管理所有子模块和第三方服务的注册：
+ * - TypeORM（MySQL）：连接本地 hello 数据库，实体包括 User 和 Job
+ * - ServeStaticModule：将 public/ 目录映射为静态资源
+ * - ConfigModule：全局环境变量 .env 配置
+ * - MailerModule：异步工厂模式，从 .env 读取邮件服务配置
+ * - ScheduleModule：@nestjs/schedule 定时任务调度
+ * - AiModule / UsersModule / JobModule：业务子模块
+ *
+ * 实现 OnApplicationBootstrap → 应用启动后自动从数据库恢复定时任务
+ * （注释掉的代码为 CronJob / setInterval / setTimeout 的 SchemaRegistry 示例）
+ */
 @Module({
   imports: [
+    // 定时任务调度模块（全局启用）
     ScheduleModule.forRoot(),
+    // TypeORM MySQL 连接配置
+    // synchronize: true → 自动同步实体到数据库（仅开发环境使用）
     TypeOrmModule.forRoot({
       type: 'mysql',
       host: 'localhost',
@@ -29,14 +46,17 @@ import { CronJob } from 'cron';
       logging: true,
       entities: [User, Job],
     }),
+    // 静态文件服务 — public/ 目录映射为 / 路径
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', 'public'),
     }),
     AiModule,
+    // 全局环境变量配置 — 其他模块可直接注入 ConfigService
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
     }),
+    // 邮件服务 — 从 .env 中读取 SMTP 配置
     MailerModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
@@ -64,6 +84,16 @@ export class AppModule implements OnApplicationBootstrap {
   @Inject(SchedulerRegistry)
   schedulerRegistry: SchedulerRegistry;
 
+  /**
+   * 应用启动后自动调用
+   *
+   * 当前为空实现，定时任务恢复逻辑已移至 JobService.onApplicationBootstrap()
+   *
+   * 注释掉的代码展示了 SchedulerRegistry 三种用法：
+   * - addCronJob：Cron 表达式循环执行
+   * - addInterval：固定间隔循环执行
+   * - addTimeout：延时后执行一次
+   */
   async onApplicationBootstrap() {
     // const job = new CronJob(CronExpression.EVERY_SECOND, () => {
     //   console.log('run job');
@@ -91,4 +121,3 @@ export class AppModule implements OnApplicationBootstrap {
     // }, 5000);
   }
 }
-

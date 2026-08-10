@@ -3,6 +3,17 @@ import { tool, StructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { JobService } from '../job/job.service';
 
+/**
+ * CronJobToolService — 定时任务管理工具
+ *
+ * 封装 LangChain StructuredTool，支持三种操作：
+ * - list：列出当前所有定时任务（包含状态信息）
+ * - add：新增定时任务（支持 cron/every/at 三种类型）
+ * - toggle：启用或停用指定任务
+ *
+ * 底层委托给 JobService，通过数据库持久化任务配置。
+ * AI Agent 可通过此工具创建提醒、周期任务等自动化后台任务。
+ */
 @Injectable()
 export class CronJobToolService {
   readonly tool: StructuredTool;
