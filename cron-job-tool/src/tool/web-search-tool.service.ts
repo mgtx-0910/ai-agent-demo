@@ -1,11 +1,32 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { tool } from '@langchain/core/tools';
+import { tool, StructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
+
+/** Bocha Web Search API 返回的单条搜索结果 */
+interface WebSearchResult {
+  name: string;
+  url: string;
+  summary: string;
+  siteName: string;
+  siteIcon: string;
+  dateLastCrawled: string;
+}
+
+/** Bocha Web Search API 完整响应结构 */
+interface BochaApiResponse {
+  code: number;
+  msg?: string;
+  data?: {
+    webPages?: {
+      value?: WebSearchResult[];
+    };
+  };
+}
 
 @Injectable()
 export class WebSearchToolService {
-  readonly tool;
+  readonly tool: StructuredTool;
 
   @Inject(ConfigService)
   private readonly configService: ConfigService;
@@ -26,7 +47,13 @@ export class WebSearchToolService {
     });
 
     this.tool = tool(
-      async ({ query, count }: { query: string; count?: number }) => {
+      async ({
+        query,
+        count,
+      }: {
+        query: string;
+        count?: number;
+      }): Promise<string> => {
         const apiKey = this.configService.get<string>('BOCHA_API_KEY');
         if (!apiKey) {
           return 'Bocha Web Search 的 API Key 未配置（环境变量 BOCHA_API_KEY），请先在服务端配置后再重试。';
@@ -54,12 +81,7 @@ export class WebSearchToolService {
           return `搜索 API 请求失败，状态码: ${response.status}, 错误信息: ${errorText}`;
         }
 
-        let json: any;
-        try {
-          json = await response.json();
-        } catch (e) {
-          return `搜索 API 请求失败，原因是：搜索结果解析失败 ${(e as Error).message}`;
-        }
+        const json = (await response.json()) as BochaApiResponse;
 
         try {
           if (json.code !== 200 || !json.data) {
@@ -73,7 +95,7 @@ export class WebSearchToolService {
 
           const formatted = webpages
             .map(
-              (page: any, idx: number) =>
+              (page, idx) =>
                 `引用: ${idx + 1}
 标题: ${page.name}
 URL: ${page.url}
@@ -98,5 +120,3 @@ URL: ${page.url}
     );
   }
 }
-
-

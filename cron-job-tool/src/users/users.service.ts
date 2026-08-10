@@ -9,23 +9,26 @@ export class UsersService {
   @Inject(EntityManager)
   entityManager: EntityManager;
 
-  create(createUserDto: CreateUserDto) {
+  create(createUserDto: CreateUserDto): Promise<User> {
     return this.entityManager.save(User, createUserDto);
   }
 
-  findAll() {
+  findAll(): Promise<User[]> {
     return this.entityManager.find(User);
   }
 
-  findOne(id: number) {
+  findOne(id: number): Promise<User | null> {
     return this.entityManager.findOne(User, { where: { id } });
   }
 
-  update(id: number, updateUserDto: UpdateUserDto) {
+  update(
+    id: number,
+    updateUserDto: UpdateUserDto,
+  ): Promise<import('typeorm').UpdateResult> {
     return this.entityManager.update(User, id, updateUserDto);
   }
 
-  remove(id: number) {
+  remove(id: number): Promise<import('typeorm').DeleteResult> {
     return this.entityManager.delete(User, id);
   }
 }

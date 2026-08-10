@@ -1,11 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { tool } from '@langchain/core/tools';
+import { tool, StructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { UsersService } from '../users/users.service';
+import { CreateUserDto } from '../users/dto/create-user.dto';
 
 @Injectable()
 export class DbUsersCrudToolService {
-  readonly tool;
+  readonly tool: StructuredTool;
 
   @Inject(UsersService)
   private readonly usersService: UsersService;
@@ -52,7 +53,7 @@ export class DbUsersCrudToolService {
               return '创建用户需要同时提供 name 和 email。';
             }
             const created = await this.usersService.create({ name, email });
-            return `已创建用户：ID=${(created as any).id}，姓名=${(created as any).name}，邮箱=${(created as any).email}`;
+            return `已创建用户：ID=${created.id}，姓名=${created.name}，邮箱=${created.email}`;
           }
           case 'list': {
             const users = await this.usersService.findAll();
@@ -61,7 +62,7 @@ export class DbUsersCrudToolService {
             }
             const lines = users
               .map(
-                (u: any) =>
+                (u) =>
                   `ID=${u.id}，姓名=${u.name}，邮箱=${u.email}，创建时间=${u.createdAt?.toISOString?.() ?? ''}`,
               )
               .join('\n');
@@ -75,14 +76,13 @@ export class DbUsersCrudToolService {
             if (!user) {
               return `ID 为 ${id} 的用户在数据库中不存在。`;
             }
-            const u: any = user;
-            return `用户信息：ID=${u.id}，姓名=${u.name}，邮箱=${u.email}，创建时间=${u.createdAt?.toISOString?.() ?? ''}`;
+            return `用户信息：ID=${user.id}，姓名=${user.name}，邮箱=${user.email}，创建时间=${user.createdAt?.toISOString?.() ?? ''}`;
           }
           case 'update': {
             if (!id) {
               return '更新用户需要提供 id。';
             }
-            const payload: any = {};
+            const payload: Partial<CreateUserDto> = {};
             if (name !== undefined) payload.name = name;
             if (email !== undefined) payload.email = email;
             if (!Object.keys(payload).length) {
@@ -93,14 +93,14 @@ export class DbUsersCrudToolService {
               return `ID 为 ${id} 的用户在数据库中不存在。`;
             }
             await this.usersService.update(id, payload);
-            const updated: any = await this.usersService.findOne(id);
+            const updated = await this.usersService.findOne(id);
             return `已更新用户：ID=${id}，姓名=${updated?.name}，邮箱=${updated?.email}`;
           }
           case 'delete': {
             if (!id) {
               return '删除用户需要提供 id。';
             }
-            const existing: any = await this.usersService.findOne(id);
+            const existing = await this.usersService.findOne(id);
             if (!existing) {
               return `ID 为 ${id} 的用户在数据库中不存在，无需删除。`;
             }
@@ -108,7 +108,7 @@ export class DbUsersCrudToolService {
             return `已删除用户：ID=${id}，姓名=${existing.name}，邮箱=${existing.email}`;
           }
           default:
-            return `不支持的操作: ${action}`;
+            return `不支持的操作: ${action as string}`;
         }
       },
       {
@@ -120,5 +120,3 @@ export class DbUsersCrudToolService {
     );
   }
 }
-
-

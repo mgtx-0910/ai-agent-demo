@@ -1,13 +1,13 @@
 import { Injectable } from '@nestjs/common';
-import { tool } from '@langchain/core/tools';
+import { tool, StructuredTool } from '@langchain/core/tools';
 
 @Injectable()
 export class TimeNowToolService {
-  readonly tool;
+  readonly tool: StructuredTool;
 
   constructor() {
     this.tool = tool(
-      async () => {
+      (): { iso: string; timestamp: number } => {
         const now = new Date();
         return {
           iso: now.toISOString(),
@@ -22,4 +22,3 @@ export class TimeNowToolService {
     );
   }
 }
-

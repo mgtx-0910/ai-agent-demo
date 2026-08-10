@@ -7,14 +7,14 @@ export class LlmService {
   @Inject(ConfigService)
   private readonly configService: ConfigService;
 
-  getModel() {
+  getModel(): ChatOpenAI {
+    const model = this.configService.get<string>('MODEL_NAME') ?? 'gpt-4o-mini';
+    const apiKey = this.configService.get<string>('OPENAI_API_KEY') ?? '';
+    const baseURL = this.configService.get<string>('OPENAI_BASE_URL');
     return new ChatOpenAI({
-      model: this.configService.get('MODEL_NAME'),
-      apiKey: this.configService.get('OPENAI_API_KEY'),
-      configuration: {
-        baseURL: this.configService.get('OPENAI_BASE_URL'),
-      },
+      model,
+      apiKey,
+      configuration: { baseURL },
     });
   }
 }
-

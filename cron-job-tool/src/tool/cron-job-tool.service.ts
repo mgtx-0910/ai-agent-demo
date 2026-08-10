@@ -1,11 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { tool } from '@langchain/core/tools';
+import { tool, StructuredTool } from '@langchain/core/tools';
 import { z } from 'zod';
 import { JobService } from '../job/job.service';
 
 @Injectable()
 export class CronJobToolService {
-  readonly tool;
+  readonly tool: StructuredTool;
 
   @Inject(JobService)
   private readonly jobService: JobService;
@@ -30,7 +30,7 @@ export class CronJobToolService {
         .string()
         .optional()
         .describe(
-          '任务说明/指令（add 时需要）。要求：\n1) 从用户自然语言中去掉“什么时候执行”的定时部分后，保留纯粹要执行的任务内容。\n2) 必须是自然语言描述，不能是工具调用或代码（例如不能写 send_mail(...) / db_users_crud(...) / web_search(...)）。\n3) 不要擅自补全细节或改写成脚本。',
+          '任务说明/指令（add 时需要）。要求：\n1) 从用户自然语言中去掉"什么时候执行"的定时部分后，保留纯粹要执行的任务内容。\n2) 必须是自然语言描述，不能是工具调用或代码（例如不能写 send_mail(...) / db_users_crud(...) / web_search(...)）。\n3) 不要擅自补全细节或改写成脚本。',
         ),
       cron: z
         .string()
@@ -41,7 +41,9 @@ export class CronJobToolService {
         .int()
         .positive()
         .optional()
-        .describe('固定间隔毫秒（type=every 时需要，例如 60000 表示每分钟执行一次）'),
+        .describe(
+          '固定间隔毫秒（type=every 时需要，例如 60000 表示每分钟执行一次）',
+        ),
       at: z
         .string()
         .optional()
@@ -75,8 +77,8 @@ export class CronJobToolService {
             const jobs = await this.jobService.listJobs();
             if (!jobs.length) return '当前没有任何定时任务。';
             const lines = jobs
-              .map((j: any) => {
-                return `id=${j.id} type=${j.type} enabled=${j.isEnabled} running=${j.running} cron=${j.cron ?? ''} everyMs=${j.everyMs ?? ''} at=${j.at instanceof Date ? j.at.toISOString() : j.at ?? ''} instruction=${j.instruction ?? ''}`;
+              .map((j) => {
+                return `id=${j.id} type=${j.type} enabled=${j.isEnabled} running=${j.running} cron=${j.cron ?? ''} everyMs=${j.everyMs ?? ''} at=${j.at instanceof Date ? j.at.toISOString() : (j.at ?? '')} instruction=${j.instruction ?? ''}`;
               })
               .join('\n');
             return `当前定时任务列表（type 说明：cron=按表达式循环；every=按间隔循环；at=到点执行一次后自动停用）：\n${lines}`;
@@ -93,7 +95,7 @@ export class CronJobToolService {
                 cron,
                 isEnabled: true,
               });
-              return `已新增定时任务：id=${(created as any).id} type=cron cron=${(created as any).cron} enabled=${(created as any).isEnabled}`;
+              return `已新增定时任务：id=${created.id} type=cron cron=${created.cron} enabled=${created.isEnabled}`;
             }
 
             if (type === 'every') {
@@ -106,7 +108,7 @@ export class CronJobToolService {
                 everyMs,
                 isEnabled: true,
               });
-              return `已新增定时任务：id=${(created as any).id} type=every everyMs=${(created as any).everyMs} enabled=${(created as any).isEnabled}`;
+              return `已新增定时任务：id=${created.id} type=every everyMs=${created.everyMs} enabled=${created.isEnabled}`;
             }
 
             if (type === 'at') {
@@ -121,18 +123,18 @@ export class CronJobToolService {
                 at: date,
                 isEnabled: true,
               });
-              return `已新增定时任务：id=${(created as any).id} type=at at=${(created as any).at?.toISOString?.() ?? ''} enabled=${(created as any).isEnabled}`;
+              return `已新增定时任务：id=${created.id} type=at at=${created.at?.toISOString?.() ?? ''} enabled=${created.isEnabled}`;
             }
 
-            return `不支持的任务类型: ${type}`;
+            return `不支持的任务类型: ${String(type)}`;
           }
           case 'toggle': {
             if (!id) return 'toggle 任务需要提供 id。';
             const updated = await this.jobService.toggleJob(id, enabled);
-            return `已更新任务状态：id=${(updated as any).id} enabled=${(updated as any).isEnabled}`;
+            return `已更新任务状态：id=${updated.id} enabled=${updated.isEnabled}`;
           }
           default:
-            return `不支持的操作: ${action}`;
+            return `不支持的操作: ${String(action)}`;
         }
       },
       {
@@ -144,4 +146,3 @@ export class CronJobToolService {
     );
   }
 }
-

@@ -39,11 +39,11 @@ export class JobService implements OnApplicationBootstrap {
         (job.type === 'at' && timeouts.includes(job.id));
       if (alreadyRegistered) continue;
 
-      await this.startRuntime(job);
+      this.startRuntime(job);
     }
   }
 
-  async listJobs() {
+  async listJobs(): Promise<(Job & { running: boolean })[]> {
     const jobs = await this.entityManager.find(Job, {
       order: { createdAt: 'DESC' },
     });
@@ -86,7 +86,7 @@ export class JobService implements OnApplicationBootstrap {
           at: Date;
           isEnabled?: boolean;
         },
-  ) {
+  ): Promise<Job> {
     const entity = this.entityManager.create(Job, {
       instruction: input.instruction,
       type: input.type,
@@ -100,13 +100,13 @@ export class JobService implements OnApplicationBootstrap {
     const saved = await this.entityManager.save(Job, entity);
 
     if (saved.isEnabled) {
-      await this.startRuntime(saved);
+      this.startRuntime(saved);
     }
 
     return saved;
   }
 
-  async toggleJob(jobId: string, enabled?: boolean) {
+  async toggleJob(jobId: string, enabled?: boolean): Promise<Job> {
     const job = await this.entityManager.findOne(Job, { where: { id: jobId } });
     if (!job) throw new NotFoundException(`Job not found: ${jobId}`);
 
@@ -117,7 +117,7 @@ export class JobService implements OnApplicationBootstrap {
     }
 
     if (job.isEnabled) {
-      await this.startRuntime(job);
+      this.startRuntime(job);
     } else {
       this.stopRuntime(job);
     }
@@ -125,7 +125,7 @@ export class JobService implements OnApplicationBootstrap {
     return job;
   }
 
-  private async startRuntime(job: Job) {
+  private startRuntime(job: Job): void {
     if (job.type === 'cron') {
       const cronJobs = this.schedulerRegistry.getCronJobs();
       const existing = cronJobs.get(job.id);
@@ -148,18 +148,20 @@ export class JobService implements OnApplicationBootstrap {
         throw new Error(`Invalid everyMs for job ${job.id}`);
       }
 
-      const ref = setInterval(async () => {
-        this.logger.log(`run job ${job.id}, ${job.instruction}`);
-        await this.entityManager.update(Job, job.id, { lastRun: new Date() });
+      const ref = setInterval(() => {
+        void (async () => {
+          this.logger.log(`run job ${job.id}, ${job.instruction}`);
+          await this.entityManager.update(Job, job.id, { lastRun: new Date() });
 
-        try {
-          const result = await this.jobAgentService.runJob(job.instruction);
-          this.logger.log(`[job ${job.id}] ${result}`);
-        } catch (e) {
-          this.logger.error(
-            `job ${job.id} agent execution error: ${(e as Error).message}`,
-          );
-        }
+          try {
+            const result = await this.jobAgentService.runJob(job.instruction);
+            this.logger.log(`[job ${job.id}] ${result}`);
+          } catch (e) {
+            this.logger.error(
+              `job ${job.id} agent execution error: ${(e as Error).message}`,
+            );
+          }
+        })();
       }, job.everyMs);
 
       this.schedulerRegistry.addInterval(job.id, ref);
@@ -175,27 +177,29 @@ export class JobService implements OnApplicationBootstrap {
       }
 
       const delay = Math.max(0, job.at.getTime() - Date.now());
-      const ref = setTimeout(async () => {
-        this.logger.log(`run job ${job.id}, ${job.instruction}`);
-        await this.entityManager.update(Job, job.id, {
-          lastRun: new Date(),
-          isEnabled: false, // at 类型只执行一次：执行完自动停用
-        });
+      const ref = setTimeout(() => {
+        void (async () => {
+          this.logger.log(`run job ${job.id}, ${job.instruction}`);
+          await this.entityManager.update(Job, job.id, {
+            lastRun: new Date(),
+            isEnabled: false, // at 类型只执行一次：执行完自动停用
+          });
 
-        try {
-          const result = await this.jobAgentService.runJob(job.instruction);
-          this.logger.log(`[job ${job.id}] ${result}`);
-        } catch (e) {
-          this.logger.error(
-            `job ${job.id} agent execution error: ${(e as Error).message}`,
-          );
-        }
+          try {
+            const result = await this.jobAgentService.runJob(job.instruction);
+            this.logger.log(`[job ${job.id}] ${result}`);
+          } catch (e) {
+            this.logger.error(
+              `job ${job.id} agent execution error: ${(e as Error).message}`,
+            );
+          }
 
-        try {
-          this.schedulerRegistry.deleteTimeout(job.id);
-        } catch {
-          // ignore
-        }
+          try {
+            this.schedulerRegistry.deleteTimeout(job.id);
+          } catch {
+            // ignore
+          }
+        })();
       }, delay);
 
       this.schedulerRegistry.addTimeout(job.id, ref);
@@ -207,7 +211,7 @@ export class JobService implements OnApplicationBootstrap {
     if (job.type === 'cron') {
       const cronJobs = this.schedulerRegistry.getCronJobs();
       const runtimeJob = cronJobs.get(job.id);
-      if (runtimeJob) runtimeJob.stop();
+      if (runtimeJob) void runtimeJob.stop();
       return;
     }
 
