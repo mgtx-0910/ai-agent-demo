@@ -1,4 +1,5 @@
 import { NestFactory } from '@nestjs/core';
+import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 
 /**
@@ -16,6 +17,15 @@ import { AppModule } from './app.module';
 async function bootstrap() {
   // NestFactory 是 NestJS 的核心工厂类，用于创建应用实例
   const app = await NestFactory.create(AppModule);
+
+  // Swagger / OpenAPI 文档配置
+  const config = new DocumentBuilder()
+    .setTitle('hello-nest-langchain API')
+    .setDescription('NestJS + LangChain AI Agent 学习项目接口文档')
+    .setVersion('1.0')
+    .build();
+  const document = SwaggerModule.createDocument(app, config);
+  SwaggerModule.setup('api-docs', app, document);
 
   // 启动 HTTP 服务，监听在 .env 中的 PORT 或默认 3000 端口
   await app.listen(process.env.PORT ?? 3000);
