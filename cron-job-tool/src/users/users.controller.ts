@@ -10,6 +10,7 @@ import {
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { ApiTags, ApiOperation, ApiParam } from '@nestjs/swagger';
 
 /**
  * UsersController — 用户 RESTful API 控制器
@@ -22,6 +23,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
  * - PATCH  /users/:id 更新用户
  * - DELETE /users/:id 删除用户
  */
+@ApiTags('用户')
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
@@ -31,6 +33,7 @@ export class UsersController {
    *
    * 创建新用户，请求体需包含 name 和 email
    */
+  @ApiOperation({ summary: '创建用户', description: '创建一个新用户' })
   @Post()
   create(@Body() createUserDto: CreateUserDto) {
     return this.usersService.create(createUserDto);
@@ -41,6 +44,7 @@ export class UsersController {
    *
    * 获取所有用户列表
    */
+  @ApiOperation({ summary: '获取所有用户', description: '返回用户列表' })
   @Get()
   findAll() {
     return this.usersService.findAll();
@@ -53,6 +57,8 @@ export class UsersController {
    *
    * @param id 用户 ID（路由参数，自动转为 number）
    */
+  @ApiOperation({ summary: '获取单个用户', description: '按 ID 获取用户详情' })
+  @ApiParam({ name: 'id', required: true, description: '用户 ID', type: Number })
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.usersService.findOne(+id);
@@ -66,6 +72,8 @@ export class UsersController {
    * @param id 用户 ID（路由参数）
    * @param updateUserDto 要更新的字段（所有字段可选）
    */
+  @ApiOperation({ summary: '更新用户', description: '部分更新用户信息' })
+  @ApiParam({ name: 'id', required: true, description: '用户 ID', type: Number })
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
     return this.usersService.update(+id, updateUserDto);
@@ -78,6 +86,8 @@ export class UsersController {
    *
    * @param id 用户 ID（路由参数）
    */
+  @ApiOperation({ summary: '删除用户', description: '按 ID 删除用户' })
+  @ApiParam({ name: 'id', required: true, description: '用户 ID', type: Number })
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.usersService.remove(+id);

@@ -1,5 +1,6 @@
 import { Controller, Get } from '@nestjs/common';
 import { AppService } from './app.service';
+import { ApiTags, ApiOperation } from '@nestjs/swagger';
 
 /**
  * AppController — 根控制器，处理应用根路径的 HTTP 请求
@@ -15,6 +16,7 @@ import { AppService } from './app.service';
  * 3. 构造函数注入        — 通过 constructor 参数声明需要注入的服务
  *    private readonly 会自动将参数变为类成员变量，无需手动 this.xxx = xxx
  */
+@ApiTags('根')
 @Controller() // 没有参数 = 匹配根路径 "/"
 export class AppController {
   /**
@@ -43,6 +45,7 @@ export class AppController {
    * - 返回 string → text/html 响应
    * - 返回 object → application/json 响应
    */
+  @ApiOperation({ summary: '获取 Hello World', description: '返回 Hello World 字符串' })
   @Get()
   getHello(): string {
     return this.appService.getHello();

@@ -2,6 +2,7 @@ import { Controller, Get, MessageEvent, Query, Sse } from '@nestjs/common';
 import { AiService } from './ai.service';
 import { Observable, from } from 'rxjs';
 import { map } from 'rxjs/operators';
+import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
 
 /**
  * AiController — AI 对话控制器
@@ -11,6 +12,7 @@ import { map } from 'rxjs/operators';
  * - GET /ai/chat          普通 JSON 响应（一次性返回结果）
  * - SSE /ai/chat/stream   服务器推送事件流式响应（逐字推送）
  */
+@ApiTags('AI')
 @Controller('ai')
 export class AiController {
   constructor(private readonly aiService: AiService) {}
@@ -22,6 +24,8 @@ export class AiController {
    *
    * @param query 用户提问的文本
    */
+  @ApiOperation({ summary: 'AI 对话', description: '发送问题给 AI，一次性返回完整回答' })
+  @ApiQuery({ name: 'query', required: true, description: '用户提问的文本', type: String })
   @Get('chat')
   async chat(@Query('query') query: string) {
     const answer = await this.aiService.runChain(query);
@@ -36,6 +40,8 @@ export class AiController {
    *
    * @param query 用户提问的文本
    */
+  @ApiOperation({ summary: 'AI 流式对话', description: '发送问题给 AI，通过 SSE 流式返回回答' })
+  @ApiQuery({ name: 'query', required: true, description: '用户提问的文本', type: String })
   @Sse('chat/stream')
   chatStream(@Query('query') query: string): Observable<MessageEvent> {
     const stream = this.aiService.runChainStream(query);

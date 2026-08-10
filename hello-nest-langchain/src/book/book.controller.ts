@@ -10,6 +10,7 @@ import {
 import { BookService } from './book.service';
 import { CreateBookDto } from './dto/create-book.dto';
 import { UpdateBookDto } from './dto/update-book.dto';
+import { ApiTags, ApiOperation, ApiParam } from '@nestjs/swagger';
 
 /**
  * BookController — 图书管理控制器（完整 CRUD）
@@ -33,6 +34,7 @@ import { UpdateBookDto } from './dto/update-book.dto';
  * - PATCH：部分更新，只传需要修改的字段
  * - PUT：完整替换，需要传整个对象
  */
+@ApiTags('图书')
 @Controller('book')
 export class BookController {
   // 构造函数注入 BookService
@@ -51,6 +53,7 @@ export class BookController {
    *   POST /book
    *   Body: { "title": "1984", "author": "George Orwell" }
    */
+  @ApiOperation({ summary: '创建图书', description: '创建一本新书' })
   @Post()
   create(@Body() createBookDto: CreateBookDto) {
     return this.bookService.create(createBookDto);
@@ -62,6 +65,7 @@ export class BookController {
    * 获取所有图书列表。
    * 无需参数，直接返回全部记录。
    */
+  @ApiOperation({ summary: '获取所有图书', description: '返回图书列表' })
   @Get()
   findAll() {
     return this.bookService.findAll();
@@ -79,6 +83,8 @@ export class BookController {
    *   +"42" → 42
    *   +"abc" → NaN（不是数字时返回 Not a Number）
    */
+  @ApiOperation({ summary: '获取单本图书', description: '按 ID 获取图书详情' })
+  @ApiParam({ name: 'id', required: true, description: '图书 ID', type: Number })
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.bookService.findOne(+id);
@@ -96,6 +102,8 @@ export class BookController {
    *   PATCH /book/1
    *   Body: { "title": "动物农场" }   ← 只更新书名
    */
+  @ApiOperation({ summary: '更新图书', description: '部分更新图书信息' })
+  @ApiParam({ name: 'id', required: true, description: '图书 ID', type: Number })
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateBookDto: UpdateBookDto) {
     return this.bookService.update(+id, updateBookDto);
@@ -109,6 +117,8 @@ export class BookController {
    * 请求示例：
    *   DELETE /book/3
    */
+  @ApiOperation({ summary: '删除图书', description: '按 ID 删除图书' })
+  @ApiParam({ name: 'id', required: true, description: '图书 ID', type: Number })
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.bookService.remove(+id);

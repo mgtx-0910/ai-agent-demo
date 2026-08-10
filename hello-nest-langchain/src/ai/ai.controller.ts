@@ -1,6 +1,7 @@
 import { Controller, Get, Query, Sse } from '@nestjs/common';
 import { from, map, Observable } from 'rxjs';
 import { AiService } from './ai.service';
+import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
 
 /**
  * AiController — AI 对话控制器
@@ -16,6 +17,7 @@ import { AiService } from './ai.service';
  * - @Query('query')  → 提取 URL 查询参数，如 ?query=你好
  * - @Sse('path')     → 声明 SSE（Server-Sent Events）端点
  */
+@ApiTags('AI')
 @Controller('ai')
 export class AiController {
   constructor(private readonly aiService: AiService) {}
@@ -30,6 +32,8 @@ export class AiController {
    * - 适合简短回答或不需要实时反馈的场景
    * - 返回 JSON: { answer: "AI 的回复" }
    */
+  @ApiOperation({ summary: 'AI 对话', description: '发送问题给 AI，一次性返回完整回答' })
+  @ApiQuery({ name: 'query', required: true, description: '用户提问的文本', type: String })
   @Get('chat')
   async chat(@Query('query') query: string) {
     // query 参数从 URL 的 ?query=xxx 中提取
@@ -60,6 +64,8 @@ export class AiController {
    * - from()：把 AsyncGenerator/Promise/数组 转为 Observable
    * - pipe(map(...))：对流中的每个数据进行转换
    */
+  @ApiOperation({ summary: 'AI 流式对话', description: '发送问题给 AI，通过 SSE 流式返回回答' })
+  @ApiQuery({ name: 'query', required: true, description: '用户提问的文本', type: String })
   @Sse('chat/stream')
   chatStream(@Query('query') query: string): Observable<{ data: string }> {
     // 调用 service 的流式方法，返回 AsyncGenerator<string>

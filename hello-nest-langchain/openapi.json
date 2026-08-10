@@ -3,6 +3,7 @@
   "paths": {
     "/": {
       "get": {
+        "description": "返回 Hello World 字符串",
         "operationId": "AppController_getHello",
         "parameters": [],
         "responses": {
@@ -10,13 +11,15 @@
             "description": ""
           }
         },
+        "summary": "获取 Hello World",
         "tags": [
-          "App"
+          "根"
         ]
       }
     },
     "/book": {
       "post": {
+        "description": "创建一本新书",
         "operationId": "BookController_create",
         "parameters": [],
         "requestBody": {
@@ -34,11 +37,13 @@
             "description": ""
           }
         },
+        "summary": "创建图书",
         "tags": [
-          "Book"
+          "图书"
         ]
       },
       "get": {
+        "description": "返回图书列表",
         "operationId": "BookController_findAll",
         "parameters": [],
         "responses": {
@@ -46,21 +51,24 @@
             "description": ""
           }
         },
+        "summary": "获取所有图书",
         "tags": [
-          "Book"
+          "图书"
         ]
       }
     },
     "/book/{id}": {
       "get": {
+        "description": "按 ID 获取图书详情",
         "operationId": "BookController_findOne",
         "parameters": [
           {
             "name": "id",
             "required": true,
             "in": "path",
+            "description": "图书 ID",
             "schema": {
-              "type": "string"
+              "type": "number"
             }
           }
         ],
@@ -69,19 +77,22 @@
             "description": ""
           }
         },
+        "summary": "获取单本图书",
         "tags": [
-          "Book"
+          "图书"
         ]
       },
       "patch": {
+        "description": "部分更新图书信息",
         "operationId": "BookController_update",
         "parameters": [
           {
             "name": "id",
             "required": true,
             "in": "path",
+            "description": "图书 ID",
             "schema": {
-              "type": "string"
+              "type": "number"
             }
           }
         ],
@@ -100,19 +111,22 @@
             "description": ""
           }
         },
+        "summary": "更新图书",
         "tags": [
-          "Book"
+          "图书"
         ]
       },
       "delete": {
+        "description": "按 ID 删除图书",
         "operationId": "BookController_remove",
         "parameters": [
           {
             "name": "id",
             "required": true,
             "in": "path",
+            "description": "图书 ID",
             "schema": {
-              "type": "string"
+              "type": "number"
             }
           }
         ],
@@ -121,19 +135,22 @@
             "description": ""
           }
         },
+        "summary": "删除图书",
         "tags": [
-          "Book"
+          "图书"
         ]
       }
     },
     "/ai/chat": {
       "get": {
+        "description": "发送问题给 AI，一次性返回完整回答",
         "operationId": "AiController_chat",
         "parameters": [
           {
             "name": "query",
             "required": true,
             "in": "query",
+            "description": "用户提问的文本",
             "schema": {
               "type": "string"
             }
@@ -144,19 +161,22 @@
             "description": ""
           }
         },
+        "summary": "AI 对话",
         "tags": [
-          "Ai"
+          "AI"
         ]
       }
     },
     "/ai/chat/stream": {
       "get": {
+        "description": "发送问题给 AI，通过 SSE 流式返回回答",
         "operationId": "AiController_chatStream",
         "parameters": [
           {
             "name": "query",
             "required": true,
             "in": "query",
+            "description": "用户提问的文本",
             "schema": {
               "type": "string"
             }
@@ -167,8 +187,9 @@
             "description": ""
           }
         },
+        "summary": "AI 流式对话",
         "tags": [
-          "Ai"
+          "AI"
         ]
       }
     }
@@ -179,17 +200,56 @@
     "version": "1.0",
     "contact": {}
   },
-  "tags": [],
+  "tags": [
+    {
+      "name": "根",
+      "description": "应用根路由"
+    },
+    {
+      "name": "AI",
+      "description": "AI 对话接口"
+    },
+    {
+      "name": "图书",
+      "description": "图书 CRUD 接口"
+    }
+  ],
   "servers": [],
   "components": {
     "schemas": {
       "CreateBookDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "书名",
+            "example": "三体"
+          },
+          "author": {
+            "type": "string",
+            "description": "作者",
+            "example": "刘慈欣"
+          }
+        },
+        "required": [
+          "title",
+          "author"
+        ]
       },
       "UpdateBookDto": {
         "type": "object",
-        "properties": {}
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "书名",
+            "example": "三体"
+          },
+          "author": {
+            "type": "string",
+            "description": "作者",
+            "example": "刘慈欣"
+          }
+        }
       }
     }
   }

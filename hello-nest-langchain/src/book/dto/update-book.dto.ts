@@ -1,10 +1,8 @@
-import { PartialType } from '@nestjs/mapped-types';
+import { PartialType } from '@nestjs/swagger';
 import { CreateBookDto } from './create-book.dto';
 
 /**
  * UpdateBookDto — 更新图书的请求体数据格式
- *
- * PartialType 是 @nestjs/mapped-types 提供的工具函数：
  *
  * PartialType(CreateBookDto) 的作用：
  * - 继承 CreateBookDto 的所有字段
@@ -16,9 +14,7 @@ import { CreateBookDto } from './create-book.dto';
  * - 例如：只改书名，请求体就是 { "title": "新书名" }，不需要传 author
  * - PartialType 确保字段都是可选的，允许部分更新
  *
- * mapped-types 还提供其他实用工具：
- * - PickType(CreateBookDto, ['title'])  — 只选部分字段
- * - OmitType(CreateBookDto, ['id'])     — 排除某些字段
- * - IntersectionType(A, B)              — 合并多个类型
+ * 注意：使用 @nestjs/swagger 的 PartialType 而非 @nestjs/mapped-types，
+ * 这样 Swagger 才能正确识别可选字段。
  */
 export class UpdateBookDto extends PartialType(CreateBookDto) {}

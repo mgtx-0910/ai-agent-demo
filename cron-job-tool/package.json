@@ -17,7 +17,8 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json"
+    "test:e2e": "jest --config ./test/jest-e2e.json",
+    "generate:openapi": "ts-node src/generate-openapi.ts"
   },
   "dependencies": {
     "@langchain/core": "^1.1.32",
@@ -30,6 +31,7 @@
     "@nestjs/platform-express": "^11.0.1",
     "@nestjs/schedule": "^6.1.1",
     "@nestjs/serve-static": "^5.0.4",
+    "@nestjs/swagger": "^11.4.6",
     "@nestjs/typeorm": "^11.0.0",
     "class-validator": "^0.15.1",
     "cron": "^4.4.0",

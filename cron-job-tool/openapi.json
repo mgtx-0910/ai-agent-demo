@@ -1,0 +1,260 @@
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/": {
+      "get": {
+        "description": "返回 Hello World 字符串",
+        "operationId": "AppController_getHello",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "获取 Hello World",
+        "tags": [
+          "根"
+        ]
+      }
+    },
+    "/ai/chat": {
+      "get": {
+        "description": "发送问题给 AI，一次性返回完整回答",
+        "operationId": "AiController_chat",
+        "parameters": [
+          {
+            "name": "query",
+            "required": true,
+            "in": "query",
+            "description": "用户提问的文本",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "AI 对话",
+        "tags": [
+          "AI"
+        ]
+      }
+    },
+    "/ai/chat/stream": {
+      "get": {
+        "description": "发送问题给 AI，通过 SSE 流式返回回答",
+        "operationId": "AiController_chatStream",
+        "parameters": [
+          {
+            "name": "query",
+            "required": true,
+            "in": "query",
+            "description": "用户提问的文本",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "AI 流式对话",
+        "tags": [
+          "AI"
+        ]
+      }
+    },
+    "/users": {
+      "post": {
+        "description": "创建一个新用户",
+        "operationId": "UsersController_create",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "summary": "创建用户",
+        "tags": [
+          "用户"
+        ]
+      },
+      "get": {
+        "description": "返回用户列表",
+        "operationId": "UsersController_findAll",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "获取所有用户",
+        "tags": [
+          "用户"
+        ]
+      }
+    },
+    "/users/{id}": {
+      "get": {
+        "description": "按 ID 获取用户详情",
+        "operationId": "UsersController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "用户 ID",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "获取单个用户",
+        "tags": [
+          "用户"
+        ]
+      },
+      "patch": {
+        "description": "部分更新用户信息",
+        "operationId": "UsersController_update",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "用户 ID",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdateUserDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "更新用户",
+        "tags": [
+          "用户"
+        ]
+      },
+      "delete": {
+        "description": "按 ID 删除用户",
+        "operationId": "UsersController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "description": "用户 ID",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "删除用户",
+        "tags": [
+          "用户"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Cron Job Tool API",
+    "description": "基于 NestJS + LangChain 的定时任务管理系统 API",
+    "version": "1.0.0",
+    "contact": {}
+  },
+  "tags": [
+    {
+      "name": "根",
+      "description": "应用根路由"
+    },
+    {
+      "name": "AI",
+      "description": "AI 对话接口"
+    },
+    {
+      "name": "用户",
+      "description": "用户 CRUD 接口"
+    }
+  ],
+  "servers": [],
+  "components": {
+    "schemas": {
+      "CreateUserDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "用户名",
+            "example": "张三",
+            "maxLength": 50
+          },
+          "email": {
+            "type": "string",
+            "description": "邮箱地址",
+            "example": "zhangsan@example.com",
+            "maxLength": 50
+          }
+        },
+        "required": [
+          "name",
+          "email"
+        ]
+      },
+      "UpdateUserDto": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string",
+            "description": "用户名",
+            "example": "张三",
+            "maxLength": 50
+          },
+          "email": {
+            "type": "string",
+            "description": "邮箱地址",
+            "example": "zhangsan@example.com",
+            "maxLength": 50
+          }
+        }
+      }
+    }
+  }
+}
