@@ -13,11 +13,11 @@ import { Injectable } from '@nestjs/common';
  * - Service    → 业务逻辑层（数据处理、业务规则）
  * - 各层职责清晰，便于测试和维护
  */
-@Injectable()  // 标记为可注入，Nest 会把它放入 DI 容器管理
+@Injectable() // 标记为可注入，Nest 会把它放入 DI 容器管理
 export class AppService {
   /**
    * 简单示例方法，返回 "Hello World!"
-   * 
+   *
    * 在实际项目中，这里会包含：
    * - 数据库查询
    * - 第三方 API 调用

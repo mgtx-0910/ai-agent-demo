@@ -24,7 +24,7 @@ import { StringOutputParser } from '@langchain/core/output_parsers';
 export class AiService {
   // 私有成员变量：存储构建好的 LangChain 链
   // Runnable 是 LangChain 的核心接口，定义了 .invoke() .stream() 等方法
-  private readonly chain: Runnable;
+  private readonly chain: Runnable<{ query: string }, string>;
 
   constructor(
     /**
@@ -53,9 +53,7 @@ export class AiService {
      * 例如输入 { query: "什么是 NestJS?" }，
      * 最终发给大模型的 prompt 是：请回答以下问题：\n\n什么是 NestJS?
      */
-    const prompt = PromptTemplate.fromTemplate(
-      '请回答以下问题：\n\n{query}',
-    );
+    const prompt = PromptTemplate.fromTemplate('请回答以下问题：\n\n{query}');
 
     /**
      * 2. 构建 Runnable Chain（可运行链）

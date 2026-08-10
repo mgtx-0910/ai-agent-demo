@@ -3,7 +3,7 @@ import { AppModule } from './app.module';
 
 /**
  * bootstrap 是 NestJS 应用的启动函数
- * 
+ *
  * 执行流程：
  * 1. NestFactory.create(AppModule) — 根据根模块创建 Nest 应用实例
  *    Nest 会扫描 AppModule 中声明的所有 controller 和 provider，
@@ -22,4 +22,4 @@ async function bootstrap() {
 }
 
 // 调用启动函数，整个应用从这里开始运行
-bootstrap();
+void bootstrap();

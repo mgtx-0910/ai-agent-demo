@@ -39,11 +39,16 @@ import { ChatOpenAI } from '@langchain/openai';
       // configService 由下方的 inject 声明，Nest 自动传入
       useFactory: (configService: ConfigService) => {
         // 从 .env 文件中读取配置
+        const modelName: string =
+          configService.get<string>('MODEL_NAME') ?? 'gpt-4o-mini';
+        const apiKey: string =
+          configService.get<string>('OPENAI_API_KEY') ?? '';
+        const baseURL = configService.get<string>('OPENAI_BASE_URL');
         return new ChatOpenAI({
-          model: configService.get('MODEL_NAME'),             // 模型名称，如 gpt-4o-mini
-          apiKey: configService.get('OPENAI_API_KEY'),        // API 密钥
+          model: modelName,
+          apiKey,
           configuration: {
-            baseURL: configService.get('OPENAI_BASE_URL'),    // API 地址（兼容 OpenAI 代理服务）
+            baseURL,
           },
         });
       },

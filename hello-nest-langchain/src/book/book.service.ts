@@ -1,6 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { CreateBookDto } from './dto/create-book.dto';
 import { UpdateBookDto } from './dto/update-book.dto';
+import { Book } from './entities/book.entity';
+
+/** Book 数据仓库接口 */
+interface BookRepository {
+  findAll(): Promise<Book[]>;
+}
 
 /**
  * BookService — 图书业务逻辑层
@@ -29,7 +35,7 @@ export class BookService {
    * BookService 的代码无需任何改动——这就是 DI（依赖注入）的核心优势。
    */
   @Inject('BOOK_REPOSITORY')
-  private readonly bookRepository: any;
+  private readonly bookRepository: BookRepository;
 
   /**
    * 创建新书（GET /book）
@@ -38,6 +44,7 @@ export class BookService {
    * @param createBookDto 客户端传来的新书数据
    */
   create(createBookDto: CreateBookDto) {
+    void createBookDto; // DTO placeholder
     return 'This action adds a new book';
   }
 
@@ -50,7 +57,7 @@ export class BookService {
    * 被注释掉的 return 是占位实现，
    * 当前调用真实的 repository 来展示"替换数据源"的效果。
    */
-  findAll() {
+  findAll(): Promise<Book[]> {
     return this.bookRepository.findAll();
   }
 
@@ -71,6 +78,7 @@ export class BookService {
    * @param updateBookDto 需要更新的字段（PartialType 使所有字段可选）
    */
   update(id: number, updateBookDto: UpdateBookDto) {
+    void updateBookDto; // DTO placeholder
     return `This action updates a #${id} book`;
   }
 

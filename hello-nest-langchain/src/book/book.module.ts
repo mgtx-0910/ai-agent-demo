@@ -23,8 +23,7 @@ import { BookController } from './book.controller';
     // ========== BOOK_REPOSITORY（自定义 Provider）==========
     // 用字符串 token 注入一个内存模拟的书籍仓库
     {
-      provide: 'BOOK_REPOSITORY',  // token：用于 @Inject('BOOK_REPOSITORY') 注入
-
+      provide: 'BOOK_REPOSITORY', // token：用于 @Inject('BOOK_REPOSITORY') 注入
       /**
        * useFactory — 工厂函数
        *

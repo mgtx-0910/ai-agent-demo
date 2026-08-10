@@ -15,7 +15,7 @@ import { AppService } from './app.service';
  * 3. 构造函数注入        — 通过 constructor 参数声明需要注入的服务
  *    private readonly 会自动将参数变为类成员变量，无需手动 this.xxx = xxx
  */
-@Controller()  // 没有参数 = 匹配根路径 "/"
+@Controller() // 没有参数 = 匹配根路径 "/"
 export class AppController {
   /**
    * 构造函数注入（Constructor-based DI）
@@ -33,7 +33,7 @@ export class AppController {
 
   /**
    * @Get() 将 getHello() 映射为 GET / 请求的处理器
-   * 
+   *
    * 当用户访问 http://localhost:3000/ 时：
    * 1. Nest 路由到 AppController.getHello()
    * 2. 调用 appService.getHello() 获取返回值

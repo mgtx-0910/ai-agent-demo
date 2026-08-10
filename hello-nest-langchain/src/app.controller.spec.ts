@@ -24,8 +24,8 @@ describe('AppController', () => {
   beforeEach(async () => {
     // 创建测试模块：手动声明需要测试的 controller 和它依赖的 provider
     const app: TestingModule = await Test.createTestingModule({
-      controllers: [AppController],  // 要测试的控制器
-      providers: [AppService],       // 控制器依赖的服务（真实的或 mock 的）
+      controllers: [AppController], // 要测试的控制器
+      providers: [AppService], // 控制器依赖的服务（真实的或 mock 的）
     }).compile();
 
     // 从测试模块的 DI 容器中取出 AppController 实例

@@ -39,8 +39,8 @@ import { join } from 'path';
     // @nestjs/config 用于读取 .env 环境变量文件
     // isGlobal: true 表示全局可用，其他模块无需再次 import 就能注入 ConfigService
     ConfigModule.forRoot({
-      isGlobal: true,       // 全局模块，其他模块可直接注入 ConfigService
-      envFilePath: '.env',  // 指定环境变量文件路径
+      isGlobal: true, // 全局模块，其他模块可直接注入 ConfigService
+      envFilePath: '.env', // 指定环境变量文件路径
     }),
   ],
 
