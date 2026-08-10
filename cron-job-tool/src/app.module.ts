@@ -36,13 +36,13 @@ import { CronJob } from 'cron';
     // synchronize: true → 自动同步实体到数据库（仅开发环境使用）
     TypeOrmModule.forRoot({
       type: 'mysql',
-      host: 'localhost',
+      host: '192.168.174.128',
       port: 3306,
       username: 'root',
-      password: 'admin',
+      password: '123456',
       database: 'hello',
       synchronize: true,
-      connectorPackage: 'mysql2',
+      connectorPackage: 'mysql',
       logging: true,
       entities: [User, Job],
     }),
