@@ -133,6 +133,11 @@ export class AiService {
     ];
 
     while (true) {
+      // ── invoke vs stream 对比 ──
+      // invoke() 内部把整个 LLM 响应收集完毕后一次性返回，调用的代码只需 await。
+      // 而 runChainStream 用了 modelWithTools.stream() + async generator + yield，
+      // 由调用方（Controller 里的 from(stream).pipe(...)）订阅后 RxJS from() 内部
+      // 驱动 iterator.next() 循环拉取，逐个产出 chunk 到 SSE。
       const aiMessage = await this.modelWithTools.invoke(messages);
       // DeepSeek 在纯工具调用（无文本）时 content 为 null，
       // @langchain/openai 的 completions 转换器未兼容 null，会抛 flatMap 错误，

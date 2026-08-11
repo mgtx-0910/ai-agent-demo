@@ -69,6 +69,55 @@ export class AiController {
    * 流式对话接口：使用 Server-Sent Events 将 AI 生成的内容逐块推送给前端
    * 前端通过 EventSource 或 fetch + ReadableStream 接收实时文本流
    *
+   * ─────────────────────────────────────────────────────────────────────
+   * 「谁在调用 next()？」— from(stream).pipe(map(...)) 完整调用链
+   * ─────────────────────────────────────────────────────────────────────
+   *
+   * runChainStream 是 async generator（async *），调用时不会执行函数体，
+   * 只返回一个 AsyncIterable 对象。必须由外部拿到迭代器并反复调 .next()，
+   * generator 才会逐次推进到下一个 yield。
+   *
+   * 这里的三层驱动：
+   *
+   *   ┌─────────────────────────────────────────────────────────────────┐
+   *   │ 第 1 层：NestJS @Sse() 装饰器                                    │
+   *   │   → 要求返回 Observable<MessageEvent>，框架订阅这个 Observable，  │
+   *   │     每次推送就向 HTTP 响应写入一行 SSE 数据发给浏览器              │
+   *   └─────────────────────────┬───────────────────────────────────────┘
+   *                             │ 订阅 Observable
+   *                             ▼
+   *   ┌─────────────────────────────────────────────────────────────────┐
+   *   │ 第 2 层：RxJS from() + map()                                    │
+   *   │   → from(stream) 把 AsyncIterable 包装成 Observable，内部自动    │
+   *   │     调用 iterator.next() 不断拉取值；每次拿到一个 yield 的值，    │
+   *   │     就作为一次 Observable 推送传给下游                           │
+   *   │   → map(chunk => ({ data: chunk })) 把字符串转成 { data: "..." } │
+   *   │     格式，满足 MessageEvent 接口定义                             │
+   *   └─────────────────────────┬───────────────────────────────────────┘
+   *                             │ subscriber.next(value)
+   *                             ▼
+   *   ┌─────────────────────────────────────────────────────────────────┐
+   *   │ 第 3 层：runChainStream async generator（async *）               │
+   *   │   → 内部 while(true) + modelWithTools.stream() + yield chunk    │
+   *   │     每次 yield 返回控制权给调用方（from），等下次 .next() 再继续  │
+   *   └─────────────────────────────────────────────────────────────────┘
+   *
+   * from() 内部的简化版实现：
+   *
+   *   function from<T>(iterable: AsyncIterable<T>): Observable<T> {
+   *     return new Observable(subscriber => {
+   *       const iterator = iterable[Symbol.asyncIterator]();
+   *       async function pull() {
+   *         const { done, value } = await iterator.next(); // ← 这里调 next()!
+   *         if (done) subscriber.complete();
+   *         else { subscriber.next(value); pull(); }
+   *       }
+   *       pull();
+   *     });
+   *   }
+   *
+   * 结论：你不需要手动调 next()，from() 替你做了循环拉取的脏活。
+   *
    * @param query 用户提问的文本
    */
   @ApiOperation({
