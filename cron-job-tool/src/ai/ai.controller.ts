@@ -13,10 +13,17 @@ import { ApiTags, ApiOperation, ApiQuery } from '@nestjs/swagger';
  * 提供两个端点：
  * - GET /ai/chat          普通 JSON 响应（一次性返回结果）
  * - SSE /ai/chat/stream   服务器推送事件流式响应（逐字推送）
+ *
+ * NestJS IoC 说明：
+ * - constructor(private aiService: AiService) 是构造器注入的标准写法
+ * - NestJS 根据参数类型 AiService 去 IoC 容器中查找 { provide: AiService, useClass: AiService }
+ *   即 ai.module.ts 的 providers: [AiService] 注册的那个单例
+ * - AiService 自身也必须用 @Injectable() 标记，否则容器无法解析其构造函数参数
  */
 @ApiTags('AI')
 @Controller('ai')
 export class AiController {
+  // 构造器注入：NestJS 按类型从 IoC 容器中取出 AiService 单例并传入
   constructor(private readonly aiService: AiService) {}
 
   /**

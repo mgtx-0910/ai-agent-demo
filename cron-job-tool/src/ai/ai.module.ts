@@ -16,6 +16,13 @@ import { ToolModule } from '../tool/tool.module';
  * QUERY_USER_TOOL 是一个通过工厂函数创建的自定义 Provider，
  * 封装了通过 userId 查询内存用户数据的 LangChain tool，
  * AiService 通过 @Inject('QUERY_USER_TOOL') 注入使用。
+ *
+ * NestJS IoC 说明：
+ * - providers 数组将类/值/工厂注册到 NestJS IoC 容器，容器管理其生命周期（默认单例）
+ * - 简写 `providers: [AiService]` 等价于 `{ provide: AiService, useClass: AiService }`，
+ *   provide 为注入令牌（token），其他类通过 constructor(private ai: AiService) 按类型匹配
+ * - 自定义 Provider（如 QUERY_USER_TOOL）用字符串 token + useFactory/inject 声明依赖链，
+ *   NestJS 会先解析 inject 里的依赖，再调用 useFactory 生成实例
  */
 @Module({
   imports: [UsersModule, ToolModule],

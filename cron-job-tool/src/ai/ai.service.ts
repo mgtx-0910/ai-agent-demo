@@ -58,11 +58,22 @@ import type { StructuredToolInterface } from '@langchain/core/tools';
  * 提供两种对话方式：
  * - runChain(query)：普通调用，循环处理直到 AI 输出最终答案
  * - runChainStream(query)：流式调用，通过 AsyncGenerator 逐块 yield 文本
+ *
+ * NestJS IoC 说明：
+ * - @Injectable() 标记该类为 NestJS 管理的 bean，表示"既可以被别的类注入，也可以在自己的
+ *   构造函数中通过 @Inject() 注入其他依赖"
+ * - 该类在 ai.module.ts 的 providers 中注册后，AiController 才能通过
+ *   constructor(private aiService: AiService) 注入使用
+ * - 构造函数中 7 个 @Inject('TOKEN') 是在注入其他模块/自定义 Provider 提供的依赖，
+ *   NestJS 根据 token 字符串从 IoC 容器中查找对应实例
  */
 @Injectable()
 export class AiService {
   private readonly modelWithTools: Runnable<BaseMessage[], AIMessage>;
 
+  // 构造函数参数全部由 NestJS IoC 容器自动注入：
+  // - @Inject('CHAT_MODEL') 来自 ToolModule 中自定义 Provider 注册的 ChatOpenAI 实例
+  // - 6 个工具 token（QUERY_USER_TOOL / SEND_MAIL_TOOL / ...）均来自对应模块的 Provider
   constructor(
     @Inject('CHAT_MODEL') model: ChatOpenAI,
     @Inject('QUERY_USER_TOOL')
@@ -123,6 +134,12 @@ export class AiService {
 
     while (true) {
       const aiMessage = await this.modelWithTools.invoke(messages);
+      // DeepSeek 在纯工具调用（无文本）时 content 为 null，
+      // @langchain/openai 的 completions 转换器未兼容 null，会抛 flatMap 错误，
+      // 这里提前归一化为空字符串
+      if (aiMessage.content == null) {
+        aiMessage.content = '';
+      }
       messages.push(aiMessage);
 
       const toolCalls = aiMessage.tool_calls ?? [];
@@ -261,6 +278,12 @@ export class AiService {
         return;
       }
 
+      // DeepSeek 在纯工具调用（无文本）时 content 为 null，
+      // @langchain/openai 的 completions 转换器未兼容 null，会抛 flatMap 错误，
+      // 这里提前归一化为空字符串
+      if (fullAIMessage.content == null) {
+        fullAIMessage.content = '';
+      }
       messages.push(fullAIMessage);
 
       const toolCalls = fullAIMessage.tool_calls ?? [];
