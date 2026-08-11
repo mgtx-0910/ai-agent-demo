@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-unsafe-call -- @nestjs/swagger 装饰器类型限制，标准 NestJS Controller 写法 */
+
 import { Controller, Get, MessageEvent, Query, Sse } from '@nestjs/common';
 import { AiService } from './ai.service';
 import { Observable, from } from 'rxjs';
@@ -24,8 +26,16 @@ export class AiController {
    *
    * @param query 用户提问的文本
    */
-  @ApiOperation({ summary: 'AI 对话', description: '发送问题给 AI，一次性返回完整回答' })
-  @ApiQuery({ name: 'query', required: true, description: '用户提问的文本', type: String })
+  @ApiOperation({
+    summary: 'AI 对话',
+    description: '发送问题给 AI，一次性返回完整回答',
+  })
+  @ApiQuery({
+    name: 'query',
+    required: true,
+    description: '用户提问的文本',
+    type: String,
+  })
   @Get('chat')
   async chat(@Query('query') query: string) {
     const answer = await this.aiService.runChain(query);
@@ -40,8 +50,16 @@ export class AiController {
    *
    * @param query 用户提问的文本
    */
-  @ApiOperation({ summary: 'AI 流式对话', description: '发送问题给 AI，通过 SSE 流式返回回答' })
-  @ApiQuery({ name: 'query', required: true, description: '用户提问的文本', type: String })
+  @ApiOperation({
+    summary: 'AI 流式对话',
+    description: '发送问题给 AI，通过 SSE 流式返回回答',
+  })
+  @ApiQuery({
+    name: 'query',
+    required: true,
+    description: '用户提问的文本',
+    type: String,
+  })
   @Sse('chat/stream')
   chatStream(@Query('query') query: string): Observable<MessageEvent> {
     const stream = this.aiService.runChainStream(query);
