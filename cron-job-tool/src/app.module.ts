@@ -17,9 +17,9 @@ import { JobModule } from './job/job.module';
  * AppModule — 应用根模块
  *
  * 集中管理所有子模块和第三方服务的注册：
- * - TypeORM（MySQL）：连接本地 hello 数据库，实体包括 User 和 Job
+ * - ConfigModule（必须最先）：全局环境变量 .env 配置，后续模块通过 ConfigService 注入
+ * - TypeORM（MySQL）：异步工厂模式，从 .env 读取数据库连接参数
  * - ServeStaticModule：将 public/ 目录映射为静态资源
- * - ConfigModule：全局环境变量 .env 配置
  * - MailerModule：异步工厂模式，从 .env 读取邮件服务配置
  * - ScheduleModule：@nestjs/schedule 定时任务调度
  * - AiModule / UsersModule / JobModule：业务子模块
@@ -29,32 +29,39 @@ import { JobModule } from './job/job.module';
  */
 @Module({
   imports: [
+    // 全局环境变量配置 — 必须最先加载，后续模块通过 ConfigService 注入
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: '.env',
+    }),
     // 定时任务调度模块（全局启用）
     ScheduleModule.forRoot(),
-    // TypeORM MySQL 连接配置
+    // TypeORM MySQL 连接 — 从 .env 读取数据库参数
     // synchronize: true → 自动同步实体到数据库（仅开发环境使用）
-    TypeOrmModule.forRoot({
-      type: 'mysql',
-      host: '192.168.174.128',
-      port: 3306,
-      username: 'root',
-      password: '123456',
-      database: 'hello',
-      synchronize: true,
-      connectorPackage: 'mysql',
-      logging: true,
-      entities: [User, Job],
+    TypeOrmModule.forRootAsync({
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        type: configService.get<string>('DB_TYPE', 'mysql') as 'mysql',
+        host: configService.get<string>('DB_HOST', 'localhost'),
+        port: Number(configService.get<string>('DB_PORT', '3306')),
+        username: configService.get<string>('DB_USERNAME', 'root'),
+        password: configService.get<string>('DB_PASSWORD', 'admin'),
+        database: configService.get<string>('DB_DATABASE', 'hello'),
+        synchronize:
+          configService.get<string>('DB_SYNCHRONIZE', 'true') === 'true',
+        connectorPackage: configService.get<string>(
+          'DB_CONNECTOR',
+          'mysql2',
+        ) as 'mysql2',
+        logging: configService.get<string>('DB_LOGGING', 'true') === 'true',
+        entities: [User, Job],
+      }),
     }),
     // 静态文件服务 — public/ 目录映射为 / 路径
     ServeStaticModule.forRoot({
       rootPath: join(__dirname, '..', 'public'),
     }),
     AiModule,
-    // 全局环境变量配置 — 其他模块可直接注入 ConfigService
-    ConfigModule.forRoot({
-      isGlobal: true,
-      envFilePath: '.env',
-    }),
     // 邮件服务 — 从 .env 中读取 SMTP 配置
     MailerModule.forRootAsync({
       inject: [ConfigService],
