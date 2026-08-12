@@ -15,10 +15,33 @@ import { JobAgentService } from '../ai/job-agent.service';
  * JobService — 定时任务管理服务
  *
  * ─────────────────────────────────────────────────────────────────────
- * 「定时任务」概念说明
+ * 还在对SchedulerRegistry或定时任务 迷惑？
  * ─────────────────────────────────────────────────────────────────────
- * 本项目用 @nestjs/schedule 实现定时任务，涉及几个容易混淆的概念：
  *
+ * 这不是中间件（Middleware），也不是 Linux 的 crond 系统守护进程。
+ * 本质是 @nestjs/schedule 调度模块 + cron(纯 JS 库) + JS 原生 setTimeout/setInterval。
+ *
+ * cron 表达式的执行原理（纯 JS，跨平台）：
+ *   cron 表达式 "0 0 8 * * *"
+ *     → cron 包解析 → 算出下一次触发时间
+ *     → 用 setTimeout 等到那个时间
+ *     → 到点执行回调
+ *     → 重新计算下一次 → setTimeout 循环
+ * 整个链路不依赖任何操作系统特性，Windows/Linux/macOS 都能跑。
+ *
+ *
+ * ─────────────────────────────────────────────────────────────────────
+ * 三种任务类型与底层实现对照
+ * ─────────────────────────────────────────────────────────────────────
+ * 类型       数据库 type      底层实现              典型场景
+ * cron 定时  'cron'         cron 包的 CronJob      每天 8:00 发日报
+ * 固定间隔   'every'        JS setInterval         每 30 秒查一次状态
+ * 延迟一次   'at'           JS setTimeout          10 分钟后发提醒
+ *
+ *
+ * ─────────────────────────────────────────────────────────────────────
+ * 核心概念
+ * ─────────────────────────────────────────────────────────────────────
  * 1) SchedulerRegistry（调度注册表）
  *    NestJS 提供的「全局登记处」，统一存放所有动态创建的定时任务。
  *    可用它：新增(addCronJob/addInterval/addTimeout)、取消(deleteCronJob)、
@@ -26,9 +49,10 @@ import { JobAgentService } from '../ai/job-agent.service';
  *    为什么用它？装饰器 @Cron() 只能写死在代码里，而本项目的任务是用户
  *    存数据库、运行时动态增删的，必须用 SchedulerRegistry 动态管理。
  *
- * 2) CronJob（cron 任务）
+ * 2) CronJob（npm 包 cron，不是 Linux crond）
  *    按「cron 表达式」执行，如 '0 0 8 * * *' = 每天 8:00（6 段 = 秒 分 时 日 月 周）。
- *    注意本项目用 6 段（带秒），和 Linux 原生 5 段不一样。
+ *    注意本项目用 6 段（带秒），和 Linux 原生 crond 的 5 段不一样。
+ *    纯 JS 实现：解析 → 算时间 → setTimeout → 执行 → 循环，与操作系统无关。
  *
  * 3) setInterval（间隔任务，毫秒）
  *    每隔 N 毫秒执行一次；对应数据库 Job 的 type='every' 字段，用 everyMs 存间隔。
@@ -43,6 +67,7 @@ import { JobAgentService } from '../ai/job-agent.service';
  *    本项目用它从数据库把「已启用(isEnabled)」的任务重新登记到
  *    SchedulerRegistry，实现「重启不丢任务」。
  *
+ *
  * ── Job 实体关键字段（存数据库的那条记录）──────────────────────────────
  *  - id：任务唯一 id（UUID 字符串），同时被用作 SchedulerRegistry 的登记 key
  *  - instruction：给 AI 的指令文本（如"给张三发邮件"），到点后交给 JobAgentService 执行
@@ -51,13 +76,14 @@ import { JobAgentService } from '../ai/job-agent.service';
  *  - everyMs：type='every' 时的间隔毫秒数，其余类型存 null
  *  - at：type='at' 时的目标触发时间(Date)，其余类型存 null
  *  - isEnabled：是否启用（false 时不会登记到调度器）
- *  - lastRun：上次执行的时刻，每次跑完更新（也用于前端展示「是否正在跑」以外信息）
+ *  - lastRun：上次执行的时刻，每次跑完更新
  * ─────────────────────────────────────────────────────────────────────
  *
  * 负责定时任务的增删改查，以及底层定时任务的注册、取消和触发。
- * 支持三种执行模式：cron（cron 表达式）、interval（毫秒间隔）、timeout（延迟触发）。
+ * 支持三种执行模式：cron、interval、timeout。
  *
- * 依赖 SchedulerRegistry、JobRepository（数据库访问）和 JobAgentService（AI 执行指令）。
+ * 依赖：@nestjs/schedule(SchedulerRegistry) + cron(CronJob)
+ *      + TypeORM(EntityManager) + JobAgentService(AI 执行指令)。
  */
 @Injectable()
 export class JobService implements OnApplicationBootstrap {
