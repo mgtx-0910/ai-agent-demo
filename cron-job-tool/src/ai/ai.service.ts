@@ -139,12 +139,7 @@ export class AiService {
       // 由调用方（Controller 里的 from(stream).pipe(...)）订阅后 RxJS from() 内部
       // 驱动 iterator.next() 循环拉取，逐个产出 chunk 到 SSE。
       const aiMessage = await this.modelWithTools.invoke(messages);
-      // DeepSeek 在纯工具调用（无文本）时 content 为 null，
-      // @langchain/openai 的 completions 转换器未兼容 null，会抛 flatMap 错误，
-      // 这里提前归一化为空字符串
-      if (aiMessage.content == null) {
-        aiMessage.content = '';
-      }
+
       messages.push(aiMessage);
 
       const toolCalls = aiMessage.tool_calls ?? [];

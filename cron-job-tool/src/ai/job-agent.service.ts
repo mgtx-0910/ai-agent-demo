@@ -64,6 +64,7 @@ export class JobAgentService {
 
     while (true) {
       const aiMessage = await this.modelWithTools.invoke(messages);
+
       messages.push(aiMessage);
 
       const toolCalls = aiMessage.tool_calls ?? [];
