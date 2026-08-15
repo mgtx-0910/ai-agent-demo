@@ -25,12 +25,15 @@ export class TimeNowToolService {
 
   constructor() {
     this.tool = tool(
-      (): { iso: string; timestamp: number } => {
+      (): string => {
         const now = new Date();
-        return {
+        // 必须返回字符串而非对象：LangChain 会把工具返回值原样作为
+        // ToolMessage.content，若 content 是对象，下一轮传给 @langchain/openai
+        // 转换器时会走 message.content.flatMap() 分支，对象没有 flatMap 会抛错。
+        return JSON.stringify({
           iso: now.toISOString(),
           timestamp: now.getTime(),
-        };
+        });
       },
       {
         name: 'time_now',
