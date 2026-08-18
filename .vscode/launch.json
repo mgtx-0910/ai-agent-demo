@@ -34,6 +34,33 @@
                 "!**/node_modules/**"
             ],
             "autoAttachChildProcesses": true
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Debug tts-test.mjs",
+            "program": "${workspaceFolder}/tts-stt-test/src/tts-test.mjs",
+            "cwd": "${workspaceFolder}/tts-stt-test",
+            "console": "integratedTerminal",
+            "skipFiles": ["<node_internals>/**"]
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Debug asr-test.mjs",
+            "program": "${workspaceFolder}/tts-stt-test/src/asr-test.mjs",
+            "cwd": "${workspaceFolder}/tts-stt-test",
+            "console": "integratedTerminal",
+            "skipFiles": ["<node_internals>/**"]
+        },
+        {
+            "type": "node",
+            "request": "launch",
+            "name": "Debug streaming-tts-test.mjs",
+            "program": "${workspaceFolder}/tts-stt-test/src/streaming-tts-test.mjs",
+            "cwd": "${workspaceFolder}/tts-stt-test",
+            "console": "integratedTerminal",
+            "skipFiles": ["<node_internals>/**"]
         }
     ]
 }

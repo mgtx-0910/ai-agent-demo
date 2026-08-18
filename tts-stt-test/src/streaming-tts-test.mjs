@@ -40,12 +40,22 @@ const TEXTS = [ // 按句切分的文本片段，逐段流式发送
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms)); // 延时工具，控制文本发送节奏
 
 /**
+ * 腾讯云要求的 URL 编码（RFC 3986 严格模式）
+ * encodeURIComponent 默认不编码 -_.!~*'()，腾讯云要求 !'()* 也转义、空格用 %20
+ */
+const urlEncode = (str) =>
+  encodeURIComponent(str).replace(
+    /[!'()*]/g,
+    (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}` // 补充编码 !'()*
+  );
+
+/**
  * 构造带签名的 WebSocket 连接地址
  * @returns {{ sessionId: string, url: string }} 会话 ID 与 wss 地址
  */
 function buildWsUrl() {
   const now = Math.floor(Date.now() / 1000); // 当前时间戳（秒），用于签名与有效期
-  const sessionId = `session_${now}_${Math.random().toString(36).slice(2)}`; // 随机会话 ID
+  const sessionId = crypto.randomUUID(); // 会话唯一标识：官方要求 UUID 格式，最长 128 位
 
   const params = {
     Action: "TextToStreamAudioWSv2", // 接口名：流式合成 v2
@@ -61,22 +71,26 @@ function buildWsUrl() {
     Volume: 5, // 音量（0-10）
   };
 
-  // 签名流程：参数按键名排序 → 拼接 key=value → 拼上方法与域名 → HMAC-SHA1 → Base64
+  // 签名流程（腾讯云官方要求，见文档 1073/108595）：
+  // 1. 除 Signature 外所有参数按 key 字典序（ASCII 升序）排序
+  // 2. key 与 value 均做 URL 编码后拼接为 key=value&... 形式
+  // 3. 签名原文 = GET + tts.cloud.tencent.com/stream_wsv2 + ? + 参数串（无空格）
+  // 4. HMAC-SHA1(原文, SecretKey) → Base64 得到签名
+  // 5. 签名值再做 URL 编码后拼接到 URL 末尾（必须编码 + / = 等字符）
   const sortedKeys = Object.keys(params).sort(); // 1. 按参数名升序排序
-  const signStr = sortedKeys.map((k) => `${k}=${params[k]}`).join("&"); // 2. 拼接成 key=value&... 形式
+  const signStr = sortedKeys
+    .map((k) => `${urlEncode(k)}=${urlEncode(String(params[k]))}`) // 2. 键值均 URL 编码后拼接
+    .join("&");
   const rawStr = `GETtts.cloud.tencent.com/stream_wsv2?${signStr}`; // 3. 拼接签名原文
   const signature = crypto // 4. 生成 HMAC-SHA1 签名
     .createHmac("sha1", SECRET_KEY)
     .update(rawStr)
     .digest("base64");
-  const searchParams = new URLSearchParams({ // 5. 将参数与签名编码为查询串
-    ...params,
-    Signature: signature,
-  });
 
+  // 5. 直接复用编码后的参数串 + 编码后的签名，保证 URL 与签名串完全一致
   return {
     sessionId, // 会话 ID，后续发送文本时需携带
-    url: `wss://tts.cloud.tencent.com/stream_wsv2?${searchParams.toString()}`, // 完整 wss 地址
+    url: `wss://tts.cloud.tencent.com/stream_wsv2?${signStr}&Signature=${urlEncode(signature)}`, // 完整 wss 地址
   };
 }
 
