@@ -18,10 +18,11 @@
 │  (public/*)  │               │  SpeechService        │ ──▶ 腾讯云一句话识别(ASR)
 │              │               └───────────────────────┘     返回识别文本
 │              │
-│              │  ② 建立 TTS 通道
-│              │ ────────────▶ WS /speech/tts/ws（带 sessionId 注册会话）
+│              │  ② 建立 TTS 通道（等待服务端回传 sessionId）
+│              │ ────────────▶ WS /speech/tts/ws
+│              │ ◀──────────── { type:'session', sessionId }
 │              │
-│              │  ③ 发起 AI 流式对话
+│              │  ③ 发起 AI 流式对话（把 sessionId 作为 ttsSessionId 回传）
 │              │ ────────────▶ SSE GET /ai/chat/stream?query=..&ttsSessionId=..
 └──────┬───────┘
        │
@@ -172,7 +173,7 @@ WS /speech/tts/ws?sessionId=<可选>
 |---|---|---|
 | `sessionId` | 否 | 不传则由服务端生成随机 UUID |
 
-服务端 `main.ts` 在连接建立时把客户端注册到 `TtsRelayService`，并向客户端回传会话信息。
+服务端 `main.ts` 在连接建立时把客户端注册到 `TtsRelayService`，并立即回传 `{ type: 'session', sessionId }`；未携带 `sessionId` 时由服务端生成随机 UUID。前端保存该 ID，在发起 AI SSE 请求时作为 `ttsSessionId` 回传，用于将 AI 文本分片路由到本连接（详见「ttsSessionId 获取与回传机制」）。
 
 ---
 
@@ -204,15 +205,15 @@ WS /speech/tts/ws?sessionId=<可选>
 3. 服务端 `SpeechController` → `SpeechService.recognizeBySentence` → 腾讯云 `SentenceRecognition`
 4. 返回 `{ text }`，识别文本填入输入框
 
-**Step 2 — 建立 TTS 通道**
+**Step 2 — 建立 TTS 通道（获取 sessionId）**
 
-1. 前端打开 `WS /speech/tts/ws`（无 sessionId）
-2. `main.ts` 的 `connection` 回调调用 `ttsRelayService.registerClient(socket)` → 服务端生成随机 `sessionId`，以 JSON 消息 `{ type: 'session', sessionId }` 回传
-3. 前端保存 `ttsSessionId`，后续请求复用同一连接（支持多轮连续对话）
+1. 前端 `ensureTtsConnection()` 打开 `WS /speech/tts/ws`（首次不带 sessionId），挂起等待服务端回传
+2. 服务端 `main.ts` 的 `connection` 回调调用 `ttsRelayService.registerClient(socket)` → 未携带则生成随机 UUID，以 JSON 消息 `{ type: 'session', sessionId }` 回传
+3. 前端收到 `session` 消息后保存为 `ttsSessionId`，Promise resolve 继续后续流程；同一 WS 连接可复用进行多轮对话
 
 **Step 3 — 发起 AI 流式对话（带 TTS 联动）**
 
-1. 前端用 `EventSource` 请求 `GET /ai/chat/stream?query=<识别文本>&ttsSessionId=<sessionId>`
+1. 前端用 `EventSource` 请求 `GET /ai/chat/stream?query=<识别文本>&ttsSessionId=<sessionId>`（把 Step 2 拿到的 sessionId 回传）
 2. `AiController.chatStream` 先向事件总线 emit `{ type: 'start', sessionId, query }`
 3. 随后 `AiService.streamChain` 开始流式生成：
    - 每个文本分片同时执行两件事：
@@ -247,6 +248,49 @@ WS /speech/tts/ws?sessionId=<可选>
 - 浏览器主动关闭 WS → `main.ts` 的 `close` 回调调用 `unregisterClient` → 关闭腾讯云连接、删除会话
 - 应用退出时 `onModuleDestroy` 关闭全部会话
 
+### ttsSessionId 的获取与回传机制（先取后传）
+
+`ttsSessionId` 不是前端生成的，而是**服务端在 WebSocket 连接建立时分配，前端拿到后再回传**：
+
+1. 前端打开 `WS /speech/tts/ws`（不带 sessionId）→ 服务端 `registerClient` 生成随机 UUID
+2. 服务端立即回传 `{ type: 'session', sessionId }`
+3. 前端收到后保存为 `ttsSessionId`（此时 `ensureTtsConnection()` 才完成）
+4. 前端发起 `GET /ai/chat/stream` 时把该 ID 作为 `ttsSessionId` 参数回传
+5. `AiController` 从 query 取出 → 经事件总线 emit → `TtsRelayService` 按 `sessions` Map 定位到对应的浏览器 WS 连接，把腾讯云合成的音频分片推回
+
+> 该 ID 是「浏览器 WS 连接」与「AI 对话 SSE 流」之间的**关联键**，仅保存在内存 `sessions` Map 中，不持久化。SSE 请求不携带它时只做文字流式输出、不触发 TTS。
+
+---
+
+## 为什么引入事件总线
+
+### 谁生产、谁消费
+
+- **生产者**：`AiController.chatStream` 发 `start` 事件；`AiService.streamChain` 在流式生成过程中逐分片发 `chunk` / `end` / `error`（仅携带 `ttsSessionId` 时）
+- **消费者**：`TtsRelayService` 通过 `@OnEvent(AI_TTS_STREAM_EVENT)` 订阅
+- 双方只依赖 `common/stream-events.ts` 中定义的**事件名常量 + 联合类型**，互不引用对方的类
+
+### 核心原因：避免模块强耦合
+
+`AiModule` 与 `SpeechModule` 互不 import（都只依赖全局 `ConfigModule`），两者零依赖：
+
+- 如果不使用事件总线，`AiService` 要触发 TTS 就只能直接注入 `TtsRelayService`，随之而来：
+  1. `AiModule` 必须 `import SpeechModule`，两个业务模块被互相咬死
+  2. TTS 实现变更时被迫改动 AI 模块
+  3. 责任边界模糊：AI 服务需要"知道"TTS 服务的内部方法签名
+
+事件总线把依赖方向反转：**AI 模块只发出「我生成了一个分片」这个消息，谁关心、谁处理，它完全不需要知道**。
+
+### 其他收益
+
+- **1→N 广播、方便扩展**：`EventEmitterModule.forRoot({ maxListeners: 200 })` 预留了多订阅能力。未来想加日志、token 统计等订阅者，只需新增一个 `@OnEvent` 类，**AI 模块一行代码都不用改**
+- **贴合流式语义**：AI 输出天然是 `start → chunk* → end/error` 的阶段序列，事件模型与这条流水线一一对应，阅读代码时"谁发出什么信号、谁响应什么"一目了然
+
+### 补充说明
+
+- 事件总线是 **Node 进程内的**（`@nestjs/event-emitter` 基于 EventEmitter2），**不是** Redis/MQ，它解决的是**代码组织与依赖解耦**问题，不承担跨进程通信、消息持久化或削峰
+- 代价：多一层间接调用，订阅缺失要运行期才能发现（用事件类型联合兜底了一部分，`TtsRelayService` 中 `if (!session) return` 防呆）
+
 ---
 
 ## 事件协议（浏览器 ↔ 服务端 TTS WS）
@@ -262,6 +306,29 @@ WS /speech/tts/ws?sessionId=<可选>
 | `tts_error` | 出错（附 `message`，可选 `code`） |
 
 服务端 → 浏览器（二进制）：mp3 音频分片，直接追加到播放缓冲。
+
+---
+
+## WS 心跳与连接生命周期
+
+当前实现**没有心跳保活机制**：
+
+- 前端 `asr-ai-stream.html`：不发送 ping，`onclose` 仅把 `ttsWs` 置空，**无自动重连**
+- 后端 `main.ts`：创建 `WebSocketServer` 时未配置 ping/pong，`TtsRelayService` 也不检测客户端存活
+
+各链路断开的时机与风险：
+
+| 链路 | 断开行为 |
+|---|---|
+| 浏览器 ↔ 本服务 WS | `ws` 库默认不主动断开空闲连接，理论上可长期保持。但由于**无心跳**，一旦中间经过代理/负载均衡（如 nginx `proxy_read_timeout` 默认 60s、云 LB 常见 60~900s 空闲超时）或 NAT 超时，连接会被**静默断开**，且前端无法及时发现，恢复后需手动重新建立 WS、获取新的 sessionId |
+| 本服务 ↔ 腾讯云 TTS WS | 签名有效期 `Expired = now + 3600`（1 小时，官方上限 90 天）；**两次 `ACTION_SYNTHESIS` 发送间隔超过 10 分钟**会被腾讯云断开（错误码 `10009`）；腾讯云会定时下发 `heartbeat=1` 心跳事件，客户端直接忽略即可，无需主动发送心跳 |
+
+腾讯云流式合成其他限制（官方文档）：
+
+- 单会话总合成字数 ≤ **10000 字**
+- 服务端按标点（全角 `。；？！`、半角 `; ? !` 及换行）切分句子后合成；文本过短或缺少标点时，会长时间缓存不返回音频
+
+如需长连接保活，可自行补充：服务端定时 `ping()` 并清理未响应 pong 的客户端（`ws` 库官方示例），或前端定时发送任意消息保持链路活跃。
 
 ---
 
@@ -282,3 +349,5 @@ WS /speech/tts/ws?sessionId=<可选>
 - **ASR 报错**：确认腾讯云已开通语音识别服务、密钥正确，音频为 16k 采样且 ≤60 秒
 - **TTS 无声音**：确认 `SECRET_ID/SECRET_KEY/APP_ID` 与 `TTS_VOICE_TYPE` 有效；浏览器需支持 MediaSource 与 `audio/mpeg`
 - **AI 无回复**：检查 `OPENAI_BASE_URL` / `OPENAI_API_KEY` / `MODEL_NAME`，该服务使用 OpenAI 兼容协议，`BASE_URL` 需指向兼容端点
+- **WS 一段时间后断开、无音频**：当前无心跳机制，中间代理（nginx / 负载均衡）空闲超时会静默断开连接；确认链路各环节的超时配置，或按上文自行补充心跳保活
+- **长时间合成中断**：单会话连续 10 分钟未发送合成文本会被腾讯云断开（`10009`），单会话累计合成字数上限 10000 字
