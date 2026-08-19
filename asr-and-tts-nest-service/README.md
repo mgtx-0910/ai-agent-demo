@@ -293,6 +293,53 @@ WS /speech/tts/ws?sessionId=<可选>
 
 ---
 
+## 为什么同时用 SSE 与 WebSocket（双通道分工）
+
+SSE 与 WS **不是替代关系，而是各管一件事**：SSE 负责「AI 说什么」（文本），WS 负责「AI 说出来」（音频 + 会话控制）。
+
+| 通道 | 用途 | 数据形态 |
+|---|---|---|
+| `SSE /ai/chat/stream` | AI 文字流式输出 | 纯文本分片，`EventSource.onmessage` 直接累加显示 |
+| `WS /speech/tts/ws` | 音频合成结果 + 会话控制 | 二进制 mp3 分片 + JSON 控制消息 |
+
+### 1. SSE 传不了二进制音频（最关键）
+
+SSE 是纯文本协议（`text/event-stream`），而腾讯云合成的音频是 **mp3 二进制分片**。若走 SSE 只能 base64 编码（体积 +33%）且要自造"分帧/帧结束"协议。WebSocket 原生支持二进制帧，前端 `binaryType = "arraybuffer"` + `event.data instanceof ArrayBuffer` 直接判二进制，`appendBuffer` 进 MediaSource 边收边播，**零编解码开销、逐帧即达**：
+
+```428:457:public/asr-ai-stream.html
+const ws = new WebSocket(wsUrl);
+ws.binaryType = "arraybuffer";
+...
+} else if (event.data instanceof ArrayBuffer) {
+    ttsPendingBuffers.push(event.data);
+    flushTtsBufferQueue();
+```
+
+### 2. WS 双向、SSE 单向
+
+SSE 浏览器只能被动接收，无法"说"回去；WS 承担了双向会话控制：
+
+- 连接建立时**服务端主动下发 sessionId**（`{ type: 'session', sessionId }`），这本身就是一条"反向消息"
+- 多轮对话复用同一 WS 连接，无需每次重开
+- 连接关闭时服务端走 `close` 回调清理会话（`unregisterClient`）
+
+### 3. 与腾讯云协议对齐
+
+腾讯云流式合成本身就是 WebSocket（`wss://tts.cloud.tencent.com/stream_wsv2`），全链路二进制帧直传，**无任何中转编解码**：
+
+```
+腾讯云 WS ──(mp3 二进制分片)──▶ TtsRelayService ──(原样转发)──▶ 浏览器 WS ──▶ MediaSource 播放
+```
+
+### 4. 职责清晰、互不影响
+
+- 文字流可直接在 DevTools 里阅读调试，`EventSource` 自带重连语义
+- 文本流异常不影响音频链路，反之亦然；代价是需要管理两个连接
+
+**一句话总结：SSE 负责「AI 说什么」，WS 负责「AI 说出来」**——文本协议天生无法承担二进制音频流。
+
+---
+
 ## 事件协议（浏览器 ↔ 服务端 TTS WS）
 
 服务端 → 浏览器（文本 JSON）：
