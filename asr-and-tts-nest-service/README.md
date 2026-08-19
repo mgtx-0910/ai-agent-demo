@@ -340,6 +340,65 @@ SSE 浏览器只能被动接收，无法"说"回去；WS 承担了双向会话�
 
 ---
 
+## AI 边生成边合成：文字流与语音流并行
+
+**不是等 AI 全部输出结束才合成语音**，而是两条流并行推进：每个分片一到就立即喂给腾讯云，边收、边合、边播。
+
+```
+AI 模型流式输出（token 逐个到达）
+    │
+    ├─① 每个分片 ──▶ SSE data ──▶ 浏览器逐字显示（文字流）
+    │
+    └─② 同一分片 ──▶ 事件总线 ──▶ TtsRelayService ──(ACTION_SYNTHESIS)──▶ 腾讯云实时合成
+                                                          │
+                                                          ▼
+                                              mp3 音频分片 ──▶ WS ──▶ 浏览器 MediaSource 边收边播
+```
+
+代码中每个 chunk **既 `yield` 给 SSE、又 `emit` 给 TTS**：
+
+```39:49:src/ai/ai.service.ts
+for await (const chunk of stream) {
+  if (ttsSessionId) {
+    const event: AiTtsStreamEvent = { type: 'chunk', sessionId: ttsSessionId, chunk };
+    this.eventEmitter.emit(AI_TTS_STREAM_EVENT, event); // 通知 TTS 合成该分片
+  }
+  yield chunk; // 将分片返回给 SSE 客户端
+}
+```
+
+`end` 事件 / `ACTION_COMPLETE` 只是**收尾信号**（通知腾讯云「没有更多文本了」），不是「开始合成」的开关。
+
+### 细节一：音频按句推进，比文字滞后约 1 句
+
+腾讯云流式接口内部**按标点切句**（全角 `。；？！`、半角 `; ? !` 及换行）。AI 的分片往往是一个个 token/词，没到标点前腾讯云会先把文本缓存起来，攒到完整句子才产出音频。实际效果：
+
+- 浏览器**边看文字、边听语音**
+- 音频节奏略慢于文字（语音播的是上一句，文字已经滚到下一句）
+
+### 细节二：连接未就绪时有 `pendingChunks` 缓存
+
+腾讯云 WS 建立需要时间（`ready === 1` 前），期间到达的分片暂存到 `pendingChunks`，就绪后统一 `flush` 补发，不会丢分片：
+
+```97:105:src/speech/tts-relay.service.ts
+case 'chunk': { // AI 分片：就绪则转发，否则缓存
+  const chunk = event.chunk?.trim();
+  if (!chunk) return;
+  if (!session.ready || !session.tencentWs || session.tencentWs.readyState !== WebSocket.OPEN) {
+    session.pendingChunks.push(chunk); // 未就绪，暂存分片
+    return;
+  }
+  this.sendTencentChunk(session, chunk);
+```
+
+### 细节三：空分片被跳过
+
+`chunk?.trim()` 后为空（比如纯空格）的分片不会发给腾讯云。
+
+**一句话总结：AI 每吐一个字，文字立刻推给浏览器，同时这个字马上喂给腾讯云；腾讯云按句实时合成、音频分片实时回传播放。整个过程是「边想边说」，`end` 只是宣告「话终于说完了」。**
+
+---
+
 ## 事件协议（浏览器 ↔ 服务端 TTS WS）
 
 服务端 → 浏览器（文本 JSON）：
