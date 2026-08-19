@@ -1,25 +1,13 @@
-# node-fnm.ps1 — fnm + node wrapper for both Code Runner and F5 debugger
-# Usage: node-fnm.ps1 [node args...]
-# Forwards ALL arguments to node after setting up fnm environment
-#
-# NOTE: Unlike a plain "fnm use", this script locates node.exe DIRECTLY under
-# the fnm install directory. VS Code debugger / Code Runner spawn a clean
-# process that never ran "fnm env", so FNM_MULTISHELL_PATH is missing and
-# "fnm use" would fail with "can't find the necessary environment variables".
+# node-npm.ps1 -- portable npm launcher for VS Code debugger / Code Runner.
+# Works on any machine WITHOUT hardcoded paths: it locates node.exe by
+#  1) reading the nearest .node-version (upward from cwd)
+#  2) falling back to the newest version installed under fnm
+#  3) falling back to `node` on PATH
+# then runs the npm-cli.js bundled with that node installation.
 
 $ErrorActionPreference = "Continue"
 
 $cwd = (Get-Location).Path
-
-# Detect the script file from arguments (first .js/.mjs path in args)
-# Works for both: Code Runner (file path first) and F5 debugger (--inspect-brk followed by file)
-$scriptFile = $null
-foreach ($arg in $args) {
-    if ($arg -and (Test-Path -LiteralPath $arg -PathType Leaf) -and $arg -match '\.m?js$') {
-        $scriptFile = (Resolve-Path $arg).Path
-        break
-    }
-}
 
 # Find .node-version by walking up from cwd
 $nodeRoot = $cwd
@@ -30,16 +18,6 @@ while ($nodeRoot) {
     $nodeRoot = $parent
 }
 
-# Find .env: prefer walking up from script file directory, fallback to cwd
-$searchRoot = if ($scriptFile) { Split-Path $scriptFile -Parent } else { $cwd }
-$envRoot = $searchRoot
-while ($envRoot) {
-    if (Test-Path (Join-Path $envRoot ".env")) { break }
-    $parent = Split-Path $envRoot -Parent
-    if (-not $parent -or $parent -eq $envRoot) { $envRoot = $null; break }
-    $envRoot = $parent
-}
-
 # Read desired version from .node-version (e.g. "24.18.0")
 $nodeVersion = $null
 $versionFile = Join-Path $nodeRoot ".node-version"
@@ -47,10 +25,7 @@ if (Test-Path $versionFile) {
     $nodeVersion = (Get-Content $versionFile -Raw).Trim()
 }
 
-# Locate node.exe -- no hardcoded paths/versions, portable across machines:
-#   1) version from .node-version under fnm dir
-#   2) newest version installed under fnm dir
-#   3) `node` on PATH
+# Locate node.exe -- no hardcoded paths/versions, portable across machines
 $fnmDir = $null
 if ($env:FNM_DIR) { $fnmDir = $env:FNM_DIR }
 if (-not $fnmDir -and $env:LOCALAPPDATA -and (Test-Path (Join-Path $env:LOCALAPPDATA "fnm"))) {
@@ -90,19 +65,23 @@ if (-not $nodeExe -and (Get-Command node -ErrorAction SilentlyContinue)) {
 }
 
 if (-not $nodeExe) {
-    Write-Host "[node-fnm] ERROR: cannot locate node.exe. Install fnm + node, or add node to PATH." -ForegroundColor Red
+    Write-Host "[node-npm] ERROR: cannot locate node.exe. Install fnm + node, or add node to PATH." -ForegroundColor Red
     exit 1
 }
 
-# CD to .env directory if found (so dotenv/config auto-loads .env)
-if ($envRoot) {
-    Set-Location $envRoot
+# Derive npm-cli.js path from node.exe location
+if ($nodeExe -ne "node") {
+    $npmCli = Join-Path (Split-Path $nodeExe -Parent) "node_modules\npm\bin\npm-cli.js"
+} else {
+    $npmCli = $null
 }
 
-# Forward ALL arguments to node (works for both Code Runner and F5 debugger)
-& $nodeExe @args
-$exitCode = $LASTEXITCODE
+if (-not $npmCli -or -not (Test-Path $npmCli)) {
+    Write-Host "[node-npm] ERROR: cannot locate npm-cli.js near $nodeExe." -ForegroundColor Red
+    exit 1
+}
 
-# Restore original directory
+& $nodeExe $npmCli @args
+$exitCode = $LASTEXITCODE
 Set-Location $cwd
 exit $exitCode
