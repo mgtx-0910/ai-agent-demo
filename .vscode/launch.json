@@ -4,6 +4,28 @@
         {
             "type": "node",
             "request": "launch",
+            "name": "Debug agui-backend",
+            "runtimeExecutable": "${workspaceFolder}/node-npm.cmd",
+            "runtimeArgs": [
+                "run",
+                "start:debug"
+            ],
+            "cwd": "${workspaceFolder}/agui-backend",
+            "console": "integratedTerminal",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "port": 9229,
+            "sourceMaps": true,
+            "resolveSourceMapLocations": [
+                "${workspaceFolder}/**",
+                "!**/node_modules/**"
+            ],
+            "autoAttachChildProcesses": true
+        },
+        {
+            "type": "node",
+            "request": "launch",
             "name": "Debug asr-and-tts-nest-service",
             "runtimeExecutable": "${workspaceFolder}/node-npm.cmd",
             "runtimeArgs": [

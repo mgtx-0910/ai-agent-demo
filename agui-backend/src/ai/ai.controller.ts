@@ -10,7 +10,7 @@ import { pipeUIMessageStreamToResponse, UIMessage } from 'ai';
  */
 @Controller('ai')
 export class AiController {
-  constructor(private readonly aiService: AiService) {}
+  constructor(private readonly aiService: AiService) { }
 
   /**
    * 流式对话：POST /ai/chat
