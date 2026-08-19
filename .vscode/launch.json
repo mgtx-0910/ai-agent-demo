@@ -1,66 +1,86 @@
 {
-    "version": "0.2.0",
-    "configurations": [
-        {
-            "type": "node",
-            "request": "launch",
-            "name": "Debug cron-job-tool",
-            "runtimeExecutable": "npm",
-            "runtimeArgs": ["run", "start:debug"],
-            "cwd": "${workspaceFolder}/cron-job-tool",
-            "console": "integratedTerminal",
-            "skipFiles": ["<node_internals>/**"],
-            "port": 9229,
-            "sourceMaps": true,
-            "resolveSourceMapLocations": [
-                "${workspaceFolder}/**",
-                "!**/node_modules/**"
-            ],
-            "autoAttachChildProcesses": true
-        },
-        {
-            "type": "node",
-            "request": "launch",
-            "name": "Debug hello-nest-langchain",
-            "runtimeExecutable": "npm",
-            "runtimeArgs": ["run", "start:debug"],
-            "cwd": "${workspaceFolder}/hello-nest-langchain",
-            "console": "integratedTerminal",
-            "skipFiles": ["<node_internals>/**"],
-            "port": 9229,
-            "sourceMaps": true,
-            "resolveSourceMapLocations": [
-                "${workspaceFolder}/**",
-                "!**/node_modules/**"
-            ],
-            "autoAttachChildProcesses": true
-        },
-        {
-            "type": "node",
-            "request": "launch",
-            "name": "Debug tts-test.mjs",
-            "program": "${workspaceFolder}/tts-stt-test/src/tts-test.mjs",
-            "cwd": "${workspaceFolder}/tts-stt-test",
-            "console": "integratedTerminal",
-            "skipFiles": ["<node_internals>/**"]
-        },
-        {
-            "type": "node",
-            "request": "launch",
-            "name": "Debug asr-test.mjs",
-            "program": "${workspaceFolder}/tts-stt-test/src/asr-test.mjs",
-            "cwd": "${workspaceFolder}/tts-stt-test",
-            "console": "integratedTerminal",
-            "skipFiles": ["<node_internals>/**"]
-        },
-        {
-            "type": "node",
-            "request": "launch",
-            "name": "Debug streaming-tts-test.mjs",
-            "program": "${workspaceFolder}/tts-stt-test/src/streaming-tts-test.mjs",
-            "cwd": "${workspaceFolder}/tts-stt-test",
-            "console": "integratedTerminal",
-            "skipFiles": ["<node_internals>/**"]
-        }
-    ]
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Debug cron-job-tool",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "start:debug"],
+      "cwd": "${workspaceFolder}/cron-job-tool",
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"],
+      "port": 9229,
+      "sourceMaps": true,
+      "resolveSourceMapLocations": [
+        "${workspaceFolder}/**",
+        "!**/node_modules/**"
+      ],
+      "autoAttachChildProcesses": true
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Debug hello-nest-langchain",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "start:debug"],
+      "cwd": "${workspaceFolder}/hello-nest-langchain",
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"],
+      "port": 9229,
+      "sourceMaps": true,
+      "resolveSourceMapLocations": [
+        "${workspaceFolder}/**",
+        "!**/node_modules/**"
+      ],
+      "autoAttachChildProcesses": true
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Debug tts-test.mjs",
+      "program": "${workspaceFolder}/tts-stt-test/src/tts-test.mjs",
+      "cwd": "${workspaceFolder}/tts-stt-test",
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Debug asr-test.mjs",
+      "program": "${workspaceFolder}/tts-stt-test/src/asr-test.mjs",
+      "cwd": "${workspaceFolder}/tts-stt-test",
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "type": "node",
+      "request": "launch",
+      "name": "Debug streaming-tts-test.mjs",
+      "program": "${workspaceFolder}/tts-stt-test/src/streaming-tts-test.mjs",
+      "cwd": "${workspaceFolder}/tts-stt-test",
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "name": "F5 Debug Current File (fnm node)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "${userHome}/AppData/Roaming/fnm/node-versions/v24.18.0/installation/node.exe",
+      "program": "${file}",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"]
+    },
+    {
+      "name": "F5 Debug via node-fnm wrapper",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "${workspaceFolder}/node-fnm.cmd",
+      "program": "${file}",
+      "cwd": "${workspaceFolder}",
+      "console": "integratedTerminal",
+      "skipFiles": ["<node_internals>/**"]
+    }
+  ]
 }
