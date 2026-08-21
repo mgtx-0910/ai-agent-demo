@@ -58,8 +58,23 @@ if not defined NODE_EXE (
     exit /b 1
 )
 
+REM Convert existing relative file-path args to absolute BEFORE any cd.
+REM The .env cd below changes the working directory, so a relative path arg
+REM would be resolved by node against the WRONG cwd -> duplicated directory
+REM names in the path -> "Cannot find module".
+set "ARGS="
+:convert_args
+if "%~1"=="" goto run_node
+set "ARG=%~1"
+if not "%ARG:~1,1%"==":" (
+    if exist "%ARG%" set "ARG=%~f1"
+)
+set "ARGS=!ARGS! "%ARG%""
+shift
+goto convert_args
+:run_node
 if defined ENV_ROOT cd /d "%ENV_ROOT%"
-"!NODE_EXE!" %*
+"!NODE_EXE!" %ARGS%
 exit /b %errorlevel%
 
 :search_env
