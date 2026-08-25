@@ -36,11 +36,11 @@ const getProductStock = tool(
 const tools = [getProductStock];
 
 // 模型绑定工具：模型输出里才会出现 tool_calls
-const llm = new ChatOpenAI({ 
+const llm = new ChatOpenAI({
   modelName: process.env.MODEL_NAME,
   apiKey: process.env.OPENAI_API_KEY,
   configuration: {
-      baseURL: process.env.OPENAI_BASE_URL,
+    baseURL: process.env.OPENAI_BASE_URL,
   },
 }).bindTools(tools);
 
@@ -53,14 +53,20 @@ async function agent(state) {
 // 预置工具节点：自动执行消息里的 tool_calls，并把结果作为 ToolMessage 回填
 const toolNode = new ToolNode(tools);
 
-// 构图：START -> agent；agent 后按 toolsCondition 判断：
-//   模型要求调工具 -> 进 tools；否则 -> 到 END；tools 执行完回到 agent
+/**
+ * 构图：START -> agent；agent 后按 toolsCondition 判断：
+ *   模型要求调工具 -> 进 tools；否则 -> 到 END；tools 执行完回到 agent
+ * 注意：addEdge(起点, 终点) 的两个参数有严格方向性，不能颠倒：
+ *   - addEdge(START, "agent")  入口先进入 agent
+ *   - addEdge("tools", "agent") 工具执行完，把结果带回 agent 继续推理
+ *   - 若颠倒成 addEdge("agent", "tools")，模型没打算调工具也会被无条件塞进 tools，流程就错了
+*/
 const graph = new StateGraph(MessagesAnnotation)
   .addNode("agent", agent)
   .addNode("tools", toolNode)
   .addEdge(START, "agent")
   .addConditionalEdges("agent", toolsCondition, ["tools", END])
-  .addEdge("tools", "agent")
+  .addEdge("tools", "agent") // 工具执行完毕后，把结果带回 agent 继续推理
   .compile();
 
 // 发起提问，走完整的「模型 <-> 工具」循环
