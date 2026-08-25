@@ -147,7 +147,7 @@ START → attempt ──(失败)──▶ attempt（回到自身）
 
 ### ④ 错误触发 `src/trigger-error.mjs`
 
-`step_throw` 节点故意 `throw new Error(...)`，外层 `try/catch` 捕获后打印并设置 `process.exitCode = 1`。用于验证 LangSmith / 本地日志能否看到失败 run，以及异常如何向上传播。
+`step_throw` 节点故意 `throw new Error(...)`，外层 `try/catch` 捕获后打印并设置 `process.exitCode = 1`。用于验证本地日志能否看到失败 run，以及异常如何向上传播。
 
 ### ⑤ 内存检查点 `src/checkpointer-memory.mjs`
 

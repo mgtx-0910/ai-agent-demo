@@ -1,5 +1,5 @@
 /**
- * 故意在图节点里抛错，用于验证 LangSmith / 本地日志是否能看到失败 run。
+ * 故意在图节点里抛错，用于验证本地日志是否能看到失败 run。
  * 运行：node src/trigger-error.mjs
  *
  * 若需要「未捕获的 Promise rejection」观察进程行为，可删掉下方 try/catch，
