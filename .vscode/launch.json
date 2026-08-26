@@ -128,7 +128,7 @@
             "request": "launch",
             "runtimeExecutable": "${workspaceFolder}/node-fnm.cmd",
             "program": "${file}",
-            "cwd": "${workspaceFolder}",
+            "cwd": "${fileDirname}/..",
             "console": "integratedTerminal",
             "skipFiles": [
                 "<node_internals>/**"

@@ -198,7 +198,42 @@ async function main() {
     console.log(`问题: ${question}`);
     console.log("=".repeat(80));
 
-    // 运行图：传入初始 state（k 兜底用 TOP_K，documents/generation 给空初始值）
+    // ==================== 为什么 invoke 要传这样一个对象？ ====================
+    // 因为 invoke 传入的对象就是 state 的「初始值」（起点黑板），而每个节点
+    // (state) => {...} 返回的对象是 state 的「增量更新」——它们共享同一套字段
+    // 集合（由上面的 GraphState 声明）。这是 LangGraph 的核心机制。
+    //
+    // 整个执行过程就像一块「黑板」被沿途传递、逐步填写：
+    //
+    //   invoke({ question, k, documents: [], generation: "" })   ← 初始黑板
+    //        │
+    //        ▼
+    //   retrieveNode(state) 读 question/k → 返回 { documents, ... }   ← 写黑板
+    //        │  框架自动合并：question/k 不变、documents 被填上
+    //        ▼
+    //   generateNode(state) 读 question/documents → 返回 { generation, ... } ← 写黑板
+    //        │  框架自动合并：generation 被填上
+    //        ▼
+    //   invoke 返回最终 state（黑板全貌：question + k + documents + generation）
+    //
+    // 每个节点函数签名都是 (state) => {...}：读当前黑板 → 返回要改写的字段 →
+    // 框架把返回值合并进黑板（默认「后写覆盖先写」）。所以 invoke 的参数和
+    // 节点的返回值是同一套字段，只是一个是起点、一个是沿途的更新；最终 result
+    // 里能拿到什么字段，取决于节点们返回过什么字段。
+    //
+    // 那这 4 个字段为什么都要传？
+    //   question    : 必须——整个流程的输入，没有任何节点会生成它
+    //   k           : 必须——检索条数参数，同理没有节点会生成
+    //   documents   : 可选但建议——稍后 retrieve 节点会写入，传 [] 保证流程
+    //                 启动时字段就有确定值，避免生成节点读到 undefined
+    //   generation  : 同理，占位用——真正内容由 generate 节点写入
+    //
+    // 严格来说只传 { question, k } 也能跑（retrieve 返回时会把 documents 补上），
+    // 但传空初始值是防御性写法：让每个节点随时读 state.documents /
+    // state.generation 都不会碰到 undefined，也方便后续加节点时字段不缺失。
+    //
+    // 一句话总结：invoke() 传入的 = 起点黑板，节点返回的 = 中间更新，
+    // invoke() 返回的 = 终点黑板。三者是同一结构。
     const result = await graph.invoke({
         question,
         k: Number.isFinite(kArg) ? kArg : TOP_K,
