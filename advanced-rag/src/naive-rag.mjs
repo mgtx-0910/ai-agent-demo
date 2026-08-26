@@ -42,7 +42,7 @@ const GraphState = Annotation.Root({
 // 生成模型：temperature=0 保证回答更确定（RAG 场景希望严格基于检索内容）
 const model = new ChatOpenAI({
     temperature: 0,
-    model: "qwen-plus",
+    model: process.env.MODEL_NAME,
     configuration: {
         baseURL: process.env.OPENAI_BASE_URL, // 自定义网关（阿里百炼 / DeepSeek 等兼容 OpenAI 协议的服务）
     },

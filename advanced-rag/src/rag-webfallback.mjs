@@ -55,7 +55,7 @@ const GraphState = Annotation.Root({
 // 生成模型
 const model = new ChatOpenAI({
   temperature: 0,
-  model: "qwen-plus",
+  model: process.env.MODEL_NAME,
   configuration: {
     baseURL: process.env.OPENAI_BASE_URL,
   },
