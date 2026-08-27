@@ -42,6 +42,13 @@ const WEB_RESULTS = 5; // 联网搜索返回结果条数
  *   web_documents   : 联网搜索到的网页内容片段
  *   generation      : 最终回答
  *   route_name      : 路由结果（direct | retrieve），调试用
+ *   sufficient      : 评估结果——当前信息是否足以回答
+ *   reason          : 评估理由（不足时说明缺什么信息）
+ *   search_queries  : 评估不足时生成的联网搜索词列表
+ * 注意：LangGraph 的状态是「白名单制」，节点返回的字段若不在上面定义里，
+ *       会被静默丢弃。sufficient/reason/search_queries 必须在此声明，
+ *       否则 afterEvaluateLocal 读不到 sufficient、webSearchNode 读不到
+ *       search_queries（表现为 searchQueries is not iterable）。
  */
 const GraphState = Annotation.Root({
   question: Annotation,
@@ -50,6 +57,9 @@ const GraphState = Annotation.Root({
   web_documents: Annotation,
   generation: Annotation,
   route_name: Annotation,
+  sufficient: Annotation,
+  reason: Annotation,
+  search_queries: Annotation,
 });
 
 // 生成模型
