@@ -351,28 +351,32 @@ const generateNode = async (state) => {
  *   plan  --(继续)--> retrieve      ← 循环回到检索
  *   plan  --(足够/超限)--> generate --> END
  */
-const graph = new StateGraph(GraphState)
-  .addNode("route", routeQuestionNode)
-  .addNode("decompose", decomposeQuestionNode)
-  .addNode("retrieve", retrieveNode)
-  .addNode("plan", planNextStepNode)
-  .addNode("direct_answer", directAnswerNode)
-  .addNode("generate", generateNode)
-  .addEdge(START, "route")
+const graph = new StateGraph(GraphState)  // 用 GraphState 声明的状态结构创建一个新的状态图
+  .addNode("route", routeQuestionNode)  // 注册「路由」节点：判断问题是直接回答还是需要拆分
+  .addNode("decompose", decomposeQuestionNode)  // 注册「分解」节点：把复合问题拆成多个子问题
+  .addNode("retrieve", retrieveNode)  // 注册「检索」节点：从 Milvus 检索相关文档片段
+  .addNode("plan", planNextStepNode)  // 注册「规划」节点：判断当前信息是否足够，决定下一步
+  .addNode("direct_answer", directAnswerNode)  // 注册「直接回答」节点：简单问题不走检索，直接生成答案
+  .addNode("generate", generateNode)  // 注册「生成」节点：基于检索到的上下文生成最终答案
+  .addEdge(START, "route")  // 入口边：流程从 START 进入 route 节点
+  // 条件边：route 节点根据 afterRoute 决定走 direct_answer 还是 decompose
   .addConditionalEdges("route", afterRoute, ["direct_answer", "decompose"])
-  .addEdge("decompose", "retrieve")
-  .addEdge("retrieve", "plan")
-  // 关键条件边：plan 之后根据 afterPlan 决定是循环回 retrieve 还是进入 generate
+  .addEdge("decompose", "retrieve") // 普通边：分解完子问题后进入 retrieve 检索
+  .addEdge("retrieve", "plan")  // 普通边：检索完文档后进入 plan 做决策
+  // 关键条件边：plan 节点根据 afterPlan 决定循环回 retrieve 继续检索，还是进入 generate 生成答案
   .addConditionalEdges("plan", afterPlan, ["retrieve", "generate"])
-  .addEdge("direct_answer", END)
-  .addEdge("generate", END)
-  .compile();
+  .addEdge("direct_answer", END)   // 普通边：直接回答后结束整个图
+  .addEdge("generate", END)  // 普通边：生成答案后结束整个图
+  .compile(); // 编译图，生成可执行的 graph 对象
 
 async function main() {
   // 复合问题示例：需要多轮检索才能完整回答
   const question = "乔峰为什么会离开丐帮？他离开丐帮后发生了什么？";
+  // kArg：本次运行每次检索返回的文档条数（top-k）
+  // 多跳场景每跳取 kArg 条，最多累计 kArg × MAX_HOPS 个片段进 documents
+  // 如果以后把 kArg 改成从命令行读参数、没传或传了非法值（比如 kArg = undefined），
+  // Number.isFinite 判断失败，就自动退回常量 TOP_K = 5，保证图不会因为 k 变成 NaN/undefined 而检索出错。
   const kArg = 3;
-  const maxHops = MAX_HOPS;
 
   // ===== 连接 Milvus =====
   console.log("连接到 Milvus...");
@@ -415,6 +419,8 @@ async function main() {
   // 运行图
   const result = await graph.invoke({
     question,
+    // k：把检索条数写进 state，retrieve 节点用它调 similaritySearchWithScore(q, k)
+    // 兜底：kArg 不是数字（如未传参/传 NaN）就退回常量 TOP_K(5)
     k: Number.isFinite(kArg) ? kArg : TOP_K,
     documents: [],
     next_questions: [],
