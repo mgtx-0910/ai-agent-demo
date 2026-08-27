@@ -5,7 +5,7 @@ services:
     build: ./elasticsearch       # 从本地 Dockerfile 构建镜像（自带IK）
     container_name: es-dev
     ports:
-      - "9200:9200"               # ES 访问端口
+      - "9300:9200"               # ES 访问端口（9200 被 Windows 系统保留，映射到 9300）
     environment:
       - discovery.type=single-node  # 单节点运行（开发环境）
       - xpack.security.enabled=false  # 关闭安全认证，免密码访问
@@ -55,8 +55,8 @@ services:
       MINIO_ACCESS_KEY: minioadmin
       MINIO_SECRET_KEY: minioadmin
     ports:
-      - "9001:9001"
-      - "9000:9000"
+      - "19001:9001"
+      - "19000:9000"
     volumes:
       - ${DOCKER_VOLUME_DIRECTORY:-.}/volumes/minio:/minio_data
     command: minio server /minio_data --console-address ":9001"
@@ -86,7 +86,7 @@ services:
       retries: 3
     ports:
       - "19530:19530"
-      - "9091:9091"
+      - "19091:9091"
     depends_on:
       - "etcd"
       - "minio"
