@@ -246,7 +246,7 @@ export function compileHybridRetrievalGraph(esClient, milvus, reranker, chatMode
 }
 
 // ① ES 客户端：全文检索用
-const esClient = new Client({ node: "http://localhost:9200" });
+const esClient = new Client({ node: "http://localhost:9300" });
 // ② 向量化模型：query 和文档都要用它转向量（阿里云 DashScope 兼容接口）
 const embeddings = new OpenAIEmbeddings({
   model: "text-embedding-v3",

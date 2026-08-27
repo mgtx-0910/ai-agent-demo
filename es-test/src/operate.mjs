@@ -17,7 +17,7 @@ import { Client } from '@elastic/elasticsearch';
 
 // 连接本地 ES（与 create.mjs 相同）
 const client = new Client({
-  node: 'http://localhost:9200'
+  node: 'http://localhost:9300'
 });
 
 const INDEX_NAME = 'travel_journal';

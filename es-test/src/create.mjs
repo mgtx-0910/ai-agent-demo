@@ -14,9 +14,9 @@
  */
 import { Client } from '@elastic/elasticsearch';
 
-// 连接本地 ES（对应 docker-compose 里 9200 端口，单节点、免认证）
+// 连接本地 ES（对应 docker-compose 里 9300 宿主端口，单节点、免认证）
 const client = new Client({
-  node: 'http://localhost:9200'
+  node: 'http://localhost:9300'
 });
 
 // 演示用的索引名（相当于表名）

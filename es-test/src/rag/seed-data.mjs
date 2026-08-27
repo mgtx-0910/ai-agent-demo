@@ -21,7 +21,7 @@ import {
 } from '@zilliz/milvus2-sdk-node';
 
 const INDEX_NAME = 'life_notes'; // ES 索引名 / Milvus 集合名，两边保持一致
-const ES_NODE = 'http://localhost:9200'; // ES 访问地址
+const ES_NODE = 'http://localhost:9300'; // ES 访问地址（宿主端口，9200 被 Windows 保留）
 const MILVUS_ADDRESS = 'localhost:19530'; // Milvus gRPC 端口
 
 // Milvus 集合里的两个特殊字段名（langchain 约定俗成）
