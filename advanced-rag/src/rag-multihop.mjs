@@ -359,7 +359,7 @@ const graph = new StateGraph(GraphState)  // 用 GraphState 声明的状态结�
   .addNode("direct_answer", directAnswerNode)  // 注册「直接回答」节点：简单问题不走检索，直接生成答案
   .addNode("generate", generateNode)  // 注册「生成」节点：基于检索到的上下文生成最终答案
   .addEdge(START, "route")  // 入口边：流程从 START 进入 route 节点
-  // 条件边：route 节点根据 afterRoute 决定走 direct_answer 还是 decompose
+  // 条件边：route 节点根据 afterRoute 决定走 direct_answer「直接回答」 还是 decompose「分解」
   .addConditionalEdges("route", afterRoute, ["direct_answer", "decompose"])
   .addEdge("decompose", "retrieve") // 普通边：分解完子问题后进入 retrieve 检索
   .addEdge("retrieve", "plan")  // 普通边：检索完文档后进入 plan 做决策

@@ -14,7 +14,9 @@
  * 相比 naive-rag 的新概念：
  *   1. addConditionalEdges —— 条件边，用函数返回值在多个候选节点中选择下一个
  *   2. ChatPromptTemplate + withStructuredOutput —— 用结构化输出让模型返回固定 JSON
- *   3. RunnableBranch 配合 message_history —— 给对话补上历史消息（支持多轮）
+ *   3. 手工拼接消息数组 —— 在 system 提示后插入历史消息，支持多轮对话
+ *      （注意：@langchain/core v1 的 ChatPromptTemplate 已移除 append 方法，
+ *        所以多轮历史直接在节点里拼 BaseMessage 数组，更直观可靠）
  *
  * 运行：node src/rag-query-router.mjs
  */
@@ -22,9 +24,8 @@ import "dotenv/config";
 import { ChatOpenAI, OpenAIEmbeddings } from "@langchain/openai";
 import { Annotation, END, START, StateGraph } from "@langchain/langgraph";
 import { Milvus } from "@langchain/community/vectorstores/milvus";
-import { HumanMessage } from "@langchain/core/messages";
+import { AIMessage, HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { ChatPromptTemplate } from "@langchain/core/prompts";
-import { RunnableBranch } from "@langchain/core/runnables";
 
 // ===== 可调参数 =====
 const COLLECTION_NAME = "ebook_collection"; // Milvus 集合名（《天龙八部》分章切块）
@@ -87,56 +88,43 @@ const RouteSchema = {
 /**
  * 节点① 路由判断：用 LLM 判断问题复杂度，选择 direct 或 retrieve
  * 实现方式：
- *   - ChatPromptTemplate 定义提示词模板（system + human）
- *   - RunnableBranch 基于 message_history 分支：
- *     有历史 → 模板末尾拼接历史消息（多轮上下文）；
- *     无历史 → 只用当前问题。
+ *   - 手工构造 BaseMessage 数组：SystemMessage + 历史消息 + HumanMessage
+ *     （@langchain/core v1 的 ChatPromptTemplate 已无 append 方法，
+ *       直接拼消息数组最直观，且天然支持多轮上下文）
+ *   - 有历史时插入在 system 与当前问题之间，便于模型参考前文
  *   - withStructuredOutput 让模型输出符合 RouteSchema 的 JSON
  */
 const routeQuestionNode = async (state) => {
-  const routePrompt = ChatPromptTemplate.fromMessages([
-    [
-      "system",
+  const messages = [
+    new SystemMessage(
       `你是一个问题路由分类器。根据用户的问题复杂度，将问题分类为：
 - direct: 适合直接回答的问题（常识性、概述性、不需要特定书籍细节的问题）
 - retrieve: 需要检索书籍内容才能准确回答的问题（涉及具体情节、人物、细节、引文等）
 
 只输出 JSON 对象，不要输出其他内容。`,
-    ],
-    [
-      "human",
+    ),
+    // 多轮历史插在 system 与当前问题之间
+    ...(state.message_history ?? []),
+    new HumanMessage(
       `判断以下问题应使用 direct 还是 retrieve 路由：
 
-问题: {question}
+问题: ${state.question}
 
 请输出 JSON 结果。`,
-    ],
-  ]);
+    ),
+  ];
 
-  // RunnableBranch 根据是否有历史消息选择不同输入构造方式
-  const routeChain = RunnableBranch.from([
-    [
-      // 条件：存在非空的历史消息
-      async (input) => input.message_history && input.message_history.length > 0,
-      // 分支一：在 system/human 模板基础上追加完整历史（历史在最后，便于模型参考前文）
-      routePrompt.append((input) => input.message_history),
-    ],
-    // 分支二（默认）：直接使用上面的 system + human 模板
-    routePrompt,
-  ]).pipe(model.withStructuredOutput(RouteSchema));
-
-  const route = await routeChain.invoke({
-    question: state.question,
-    message_history: state.message_history ?? [],
-  });
+  const route = await model.withStructuredOutput(RouteSchema).invoke(messages);
   return { ...state, route_name: route.type };
 };
 
-/** 节点② 直接回答：不检索，模型基于自身知识回答（带历史上下文） */
+/**
+ * 节点② 直接回答：不检索，模型基于自身知识回答（带历史上下文）
+ * 同样手工拼消息数组：system + 历史 + 当前问题
+ */
 const directAnswerNode = async (state) => {
-  const directPrompt = ChatPromptTemplate.fromMessages([
-    [
-      "system",
+  const messages = [
+    new SystemMessage(
       `你是一个专业的《天龙八部》小说助手。你可以基于你的知识回答用户的问题。
 
 回答要求：
@@ -144,22 +132,12 @@ const directAnswerNode = async (state) => {
 2. 对于你了解的内容，给出详细的回答
 3. 如果不确定，可以如实说明
 4. 不需要引用书籍原文，给出流畅自然的回答即可`,
-    ],
-  ]);
+    ),
+    ...(state.message_history ?? []),
+    new HumanMessage(state.question),
+  ];
 
-  // 同样按是否有历史消息来组装完整消息列表
-  const directChain = RunnableBranch.from([
-    [
-      async (input) => input.message_history && input.message_history.length > 0,
-      directPrompt.append((input) => input.message_history),
-    ],
-    directPrompt,
-  ]).pipe(model);
-
-  const response = await directChain.invoke({
-    question: state.question,
-    message_history: state.message_history ?? [],
-  });
+  const response = await model.invoke(messages);
   return { ...state, generation: response.content };
 };
 
@@ -337,9 +315,9 @@ async function main() {
     console.log("\n【AI 回答】");
     console.log(result.generation);
 
-    // 更新历史：用户问 + 模型答，作为下一轮的上下文
+    // 更新历史：用户问 + 模型答，作为下一轮的上下文（必须是 BaseMessage 实例）
     history.push(new HumanMessage(q.text));
-    history.push(result.generation);
+    history.push(new AIMessage(result.generation));
     console.log("\n" + "=".repeat(80) + "\n");
   }
 }

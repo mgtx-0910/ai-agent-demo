@@ -396,23 +396,26 @@ const afterEvaluateLocal = (state) =>
  * 注意：联网后的 evaluate_web 结果不再继续触发二次联网（信息已尽力收集），
  * 直接进入 generate 由模型综合处理。
  */
-const graph = new StateGraph(GraphState)
-  .addNode("route", routeQuestionNode)
-  .addNode("direct_answer", directAnswerNode)
-  .addNode("retrieve_local", retrieveLocalNode)
-  .addNode("evaluate", evaluateNode)
-  .addNode("web_search", webSearchNode)
-  .addNode("evaluate_web", evaluateWebNode)
-  .addNode("generate", generateNode)
-  .addEdge(START, "route")
+const graph = new StateGraph(GraphState) // 用 GraphState 声明的状态结构创建一个新的状态图
+  .addNode("route", routeQuestionNode) // 注册「路由」节点：判断问题是直接回答还是需要本地检索
+  .addNode("direct_answer", directAnswerNode) // 注册「直接回答」节点：简单问题不走检索，直接生成答案
+  .addNode("retrieve_local", retrieveLocalNode) // 注册「本地检索」节点：从 Milvus 检索相关文档片段
+  .addNode("evaluate", evaluateNode) // 注册「本地评估」节点：判断本地检索结果是否足以回答
+  .addNode("web_search", webSearchNode) // 注册「联网搜索」节点：本地信息不足时调用博查搜索 API
+  .addNode("evaluate_web", evaluateWebNode) // 注册「联网评估」节点：确认本地+网络信息是否已补足缺口
+  .addNode("generate", generateNode) // 注册「生成」节点：综合本地片段与联网结果生成最终回答
+  .addEdge(START, "route") // 入口边：流程从 START 进入 route 节点
+  // 条件边：route 节点根据 afterRoute 的返回值决定走 direct_answer「直接回答」 还是 retrieve_local「本地检索」
   .addConditionalEdges("route", afterRoute, ["direct_answer", "retrieve_local"])
-  .addEdge("retrieve_local", "evaluate")
+  .addEdge("retrieve_local", "evaluate") // 普通边：本地检索完成后进入 evaluate 做信息评估
+  // 关键条件边（联网回退开关）：evaluate 根据 afterEvaluateLocal 判断
+  // 信息足够 → generate 直接生成；信息不足 → web_search 联网补充
   .addConditionalEdges("evaluate", afterEvaluateLocal, ["generate", "web_search"])
-  .addEdge("web_search", "evaluate_web")
-  .addEdge("evaluate_web", "generate")
-  .addEdge("direct_answer", END)
-  .addEdge("generate", END)
-  .compile();
+  .addEdge("web_search", "evaluate_web") // 普通边：联网搜索完成后进入 evaluate_web 做二次评估
+  .addEdge("evaluate_web", "generate") // 普通边：二次评估后不再回退，进入 generate 综合生成
+  .addEdge("direct_answer", END) // 普通边：直接回答后结束整个图
+  .addEdge("generate", END) // 普通边：生成答案后结束整个图
+  .compile(); // 编译图，生成可执行的 graph 对象
 
 async function main() {
   // 测试问题：本地可能查不到/查不全，会触发联网回退
