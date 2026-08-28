@@ -26,10 +26,10 @@ export class DashScopeRerank extends BaseDocumentCompressor {
    * @param topN     重排后保留前多少条
    * @param baseUrl  接口地址，默认读环境变量 RERANK_URL
    */
-  constructor({ apiKey, model = "qwen3-rerank", topN = 3, baseUrl } = {}) {
+  constructor({ apiKey, model, topN = 3, baseUrl } = {}) {
     super();
     this.apiKey = apiKey;
-    this.model = model;
+    this.model = model ?? process.env.RERANK_MODEL;
     this.topN = topN;
     this.baseUrl = baseUrl ?? process.env.RERANK_URL;
   }
