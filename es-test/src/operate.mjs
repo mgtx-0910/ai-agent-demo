@@ -108,21 +108,7 @@ async function run() {
   // const docId = await createDocument();   // 1. 新增
   // await getDocument(docId);               // 2. 按 id 查询
   // console.log('docId', docId);
-
-  // 动态获取一个真实存在的文档 id（不再硬编码：文档可能已被删除/索引可能被重建）
-  // 先搜索索引里的第一条文档；若索引为空，则先新增一条再操作
-  const searchRes = await client.search({
-    index: INDEX_NAME,
-    size: 1,
-    track_total_hits: false
-  });
-  let docId = searchRes.hits.hits[0]?._id;
-  if (!docId) {
-    console.log('ℹ️ 索引里没有文档，先新增一条再删除');
-    docId = await createDocument();
-  }
-  console.log('待删除的文档 ID =', docId);
-
+  const docId = 'IeGE550BzfcVl_0hJv5m'; // 已存在的文档 id，可直接对其操作
   // await updateDocument(docId);            // 3. 局部更新
   // await getDocument(docId);               // 4. 更新后再查，看字段变化
   // await searchDocuments();                // 5. 全文检索
