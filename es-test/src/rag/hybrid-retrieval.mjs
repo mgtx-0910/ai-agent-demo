@@ -77,6 +77,11 @@ function dedupeDocsById(docs) {
   return out;
 }
 
+/**
+ * 打印一批 Document 的简要信息（调试用）：
+ *   - label：阶段名称（如「Elasticsearch 检索」）
+ *   - docs ：Document[]，逐条打印正文前 200 字与完整 metadata
+ */
 function printDocs(label, docs) {
   console.log(`\n=== ${label} (${docs?.length ?? 0} 条) ===`);
   for (let i = 0; i < (docs ?? []).length; i++) {
@@ -103,6 +108,10 @@ function printQueryRewrite(original, augmentation) {
   }
 }
 
+/**
+ * 把 LLM 返回的 message.content 统一转成纯字符串：
+ * 兼容三种形态——直接字符串、带 text 字段的对象数组、或空值兜底。
+ */
 function stringifyMessageContent(content) {
   if (typeof content === "string") return content;
   if (!Array.isArray(content)) return String(content ?? "");
@@ -113,6 +122,10 @@ function stringifyMessageContent(content) {
     .join("");
 }
 
+/**
+ * 把重排后的 Document[] 格式化成语义上下文文本（注入提示词用）：
+ * 每条片段以 [序号] id=xxx source=xxx 开头，片段间用 --- 分隔。
+ */
 function formatDocsAsContext(docs) {
   return (docs ?? [])
     .map((d, i) => {
