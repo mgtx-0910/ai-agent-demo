@@ -184,7 +184,11 @@ export function compileHybridRetrievalGraph(esClient, milvus, reranker, chatMode
     .addNode("es_recall", async (state) => {
       const qs = retrievalQueryStrings(state.query, state.queryAugmentation);
       const n = Math.max(1, qs.length);
-      const kEach = Math.max(2, Math.ceil(ES_K / n)); // 总预算按问句数均分，每条取 kEach 条
+      // kEach = 每条问句的召回条数 = 总预算按问句数均分：
+      //   ① 总预算 ES_K 封顶 → 控制 merge/rerank 阶段的文档量（rerank 按条数计费、耗时）
+      //   ② 均分而非每条都取满 → 多条问句雨露均沾，避免单条问句独吞高分段、挤掉其他角度的独特召回
+      //   ③ 下限 2 → 问句较多时预算不会被切得太碎，保证每条问句至少有点产出
+      const kEach = Math.max(2, Math.ceil(ES_K / n));
       const batches = await Promise.all(
         qs.map((q) =>
           esClient.search({
@@ -211,6 +215,8 @@ export function compileHybridRetrievalGraph(esClient, milvus, reranker, chatMode
     .addNode("milvus_recall", async (state) => {
       const qs = retrievalQueryStrings(state.query, state.queryAugmentation);
       const n = Math.max(1, qs.length);
+      // kEach = 每条问句的召回条数 = 总预算按问句数均分（与 es_recall 同理：
+      //   控制 rerank 文档量 + 多条问句公平分摊召回，下限 2 防止预算被切碎）
       const kEach = Math.max(2, Math.ceil(MILVUS_K / n));
       const batches = await Promise.all(
         qs.map((q) => milvus.similaritySearch(q, kEach)), // 内部会先向量化 query 再搜
