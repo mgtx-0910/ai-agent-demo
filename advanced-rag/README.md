@@ -31,7 +31,7 @@ advanced-rag/
 ## 前置依赖
 
 1. **Node.js 18+**（示例中使用了内置 `fetch`）
-2. **Milvus 向量数据库**（默认 `localhost:19530`），集合 `ebook_collection` 中需已存在《天龙八部》分章切块后的向量数据
+2. **Milvus 向量数据库**（默认 `localhost:19530`），集合 `ebook_collection` 中需已存在《天龙八部》分章切块后的向量数据（向量来源：由 [`milvus-test/src/ebook-writer.mjs`](../milvus-test/src/ebook-writer.mjs) 生成并写入）
 3. **兼容 OpenAI 协议的模型服务**（如阿里百炼、DeepSeek 等），用于生成与路由决策
 4. **嵌入模型**：`text-embedding-v3`，维度 1024（须与 Milvus 建集合时的维度一致）
 
