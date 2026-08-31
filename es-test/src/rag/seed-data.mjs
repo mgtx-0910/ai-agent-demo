@@ -270,7 +270,25 @@ async function seedMilvus(collectionName, rows, emb) {
     await milvusClient.createIndex({
       collection_name: collectionName,
       field_name: EMBEDDING,
-      // HNSW：图式近邻索引，检索快；L2：欧氏距离，数值越小越相似
+      // HNSW：图式近邻索引，检索快
+      //
+      // 为什么用 L2（欧氏距离）而不是 COSINE / IP：
+      //   1. L2 = 欧氏距离 = √(Σ(aᵢ−bᵢ)²)，衡量两个向量在多维空间里的"直线距离"，
+      //      值越小 = 越相似，检索时按 L2 从小到大排序取前 K 个
+      //   2. 核心原因：text-embedding-v3（DashScope/OpenAI 系列）输出的是归一化向量（模长=1）。
+      //      对归一化向量有恒等式：L2² = 2 − 2·cos(θ)，
+      //      即 L2 和余弦相似度是单调变换关系 —— 对同一批数据排序结果顺序完全一样，
+      //      所以用 L2 实际效果就等于用了余弦
+      //   3. L2 计算简单、数值稳定（只有平方差求和开方，没有除模长的操作），
+      //      对 ANN 索引（HNSW/IVF）的实现和性能都非常友好
+      //
+      // 三种度量怎么选（Milvus 支持 L2 / IP / COSINE）：
+      //   L2    ：欧氏距离，越小越相似；归一化向量下与余弦等价，数值稳定，通用首选
+      //   COSINE：余弦相似度，越大越相似；适合向量未归一化、且只关心方向/语义（不关心向量长度）时
+      //   IP    ：内积，越大越相似；归一化向量下与余弦等价，但某些硬件/索引实现更快
+      //
+      // 结论：归一化向量 + L2 排序 ≡ 余弦排序（效果相同）+ 计算更简单。
+      // 注意：若以后更换 embedding 模型且其输出未归一化，请改用 MetricType.COSINE 并重建集合。
       index_type: IndexType.HNSW,
       metric_type: MetricType.L2,
       params: { M: 8, efConstruction: 64 }, // M=每个节点连接数，efConstruction=建索引搜索宽度
