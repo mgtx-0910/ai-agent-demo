@@ -1,98 +1,112 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# hello-nest-langchain
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+基于 **NestJS + LangChain** 的集成入门示例，演示如何在 NestJS 项目中接入 LangChain 构建 AI 对话接口，并提供标准的 RESTful CRUD 模块作为分层架构参考。
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## 功能特性
 
-## Description
+- **AI 对话模块（`ai/`）**：用 LangChain 的 `prompt.pipe(model).pipe(parser)` 构建 Runnable 链
+  - `GET /ai/chat`：一次性返回完整回答
+  - `GET /ai/chat/stream`：SSE 流式逐字返回
+- **图书管理模块（`book/`）**：标准 Controller → Service → Repository 分层
+  - 提供完整 RESTful CRUD（`POST/GET/PATCH/DELETE /book`）
+  - 通过自定义 Provider 注入内存仓库（预置 3 本书），便于后续无缝替换为真实数据库
+- **依赖注入示范**：`useFactory` 从 `.env` 读取配置创建 `ChatOpenAI` 实例，以 `CHAT_MODEL` 令牌注入
+- **Swagger / OpenAPI**：附带 `generate:openapi` 脚本导出接口文档
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+## 目录结构
 
-## Project setup
-
-```bash
-$ pnpm install
+```
+hello-nest-langchain/
+├── .env.example                 # 环境变量示例
+├── openapi.json                 # 生成的 OpenAPI 文档
+└── src/
+    ├── main.ts                  # 启动入口
+    ├── app.module.ts            # 根模块
+    ├── ai/                      # AI 对话模块
+    │   ├── ai.module.ts         #   CHAT_MODEL 工厂注入
+    │   ├── ai.controller.ts     #   GET /ai/chat、GET /ai/chat/stream
+    │   └── ai.service.ts        #   Runnable 链（invoke / stream）
+    └── book/                    # 图书 CRUD 模块
+        ├── book.module.ts       #   BOOK_REPOSITORY 工厂注入
+        ├── book.controller.ts   #   RESTful 接口
+        ├── book.service.ts      #   业务逻辑（内存仓库）
+        ├── dto/                 #   创建 / 更新 DTO
+        └── entities/            #   图书实体
 ```
 
-## Compile and run the project
+## 快速开始
+
+### 1. 环境要求
+
+- Node.js 18+
+- 可访问的 OpenAI 兼容模型端点（如通义千问 DashScope）
+
+### 2. 安装依赖
 
 ```bash
-# development
-$ pnpm run start
-
-# watch mode
-$ pnpm run start:dev
-
-# production mode
-$ pnpm run start:prod
+pnpm install   # 或 npm install
 ```
 
-## Run tests
+### 3. 配置环境变量
 
 ```bash
-# unit tests
-$ pnpm run test
-
-# e2e tests
-$ pnpm run test:e2e
-
-# test coverage
-$ pnpm run test:cov
+cp .env.example .env
 ```
 
-## Deployment
+| 变量 | 说明 | 示例 |
+|---|---|---|
+| `OPENAI_API_KEY` | 模型 API 密钥 | `sk-xxx` |
+| `OPENAI_BASE_URL` | OpenAI 兼容端点 | `https://dashscope.aliyuncs.com/compatible-mode/v1` |
+| `MODEL_NAME` | 模型名 | `qwen-plus` |
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+### 4. 启动服务
 
 ```bash
-$ pnpm install -g @nestjs/mau
-$ mau deploy
+pnpm run start:dev    # 开发模式（热重载）
+# 或
+pnpm run start        # 普通启动
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+默认监听 `3000` 端口。
 
-## Resources
+### 5. 验证
 
-Check out a few resources that may come in handy when working with NestJS:
+```bash
+# 一次性回答
+curl 'http://localhost:3000/ai/chat?question=你好'
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+# 流式回答
+curl -N 'http://localhost:3000/ai/chat/stream?question=你好'
 
-## Support
+# 图书 CRUD
+curl -X POST http://localhost:3000/book -H 'Content-Type: application/json' \
+  -d '{"title":"天龙八部","author":"金庸"}'
+curl http://localhost:3000/book
+```
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+## 接口说明
 
-## Stay in touch
+### AI 对话
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+| 接口 | 说明 |
+|---|---|
+| `GET /ai/chat?question=...` | 一次性返回模型回答 |
+| `GET /ai/chat/stream?question=...` | SSE 流式逐字返回回答 |
 
-## License
+### 图书管理
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| `POST` | `/book` | 创建图书（`title`、`author`） |
+| `GET` | `/book` | 查询全部 |
+| `GET` | `/book/:id` | 按 ID 查询 |
+| `PATCH` | `/book/:id` | 部分更新 |
+| `DELETE` | `/book/:id` | 删除 |
+
+## 生成 OpenAPI 文档
+
+```bash
+pnpm run generate:openapi
+```
+
+会在项目根目录生成 `openapi.json`。

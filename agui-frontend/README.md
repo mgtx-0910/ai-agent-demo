@@ -1,73 +1,63 @@
-# React + TypeScript + Vite
+# AGUI Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+基于 **React 19 + TypeScript + Vite + Vercel AI SDK** 的 AI 智能体对话前端，配套后端 `agui-backend`，实现「流式对话 + 工具调用可视化」的完整 Agent 交互体验。
 
-Currently, two official plugins are available:
+## 功能特性
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **流式对话**：通过 `@ai-sdk/react` 的 `useChat` + `DefaultChatTransport` 对接后端 `POST /ai/chat`（SSE），打字机效果逐字渲染
+- **工具调用可视化**：当 Agent 调用 `web_search`（联网搜索）、`send_mail`（发送邮件）工具时，以结构化卡片实时展示工具参数生成、执行进度与结果
+- **富文本渲染**：基于 Streamdown 流式渲染 Markdown，支持代码高亮与 Mermaid 图表
+- **多轮上下文**：历史消息由 `useChat` 自动维护，随每次请求一并发送
 
-## React Compiler
+## 目录结构
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```
+agui-frontend/
+├── src/
+│   ├── main.tsx                    # React 应用入口
+│   ├── App.tsx                     # 主聊天界面（消息气泡 + 输入框 + 状态控制）
+│   ├── components/
+│   │   ├── ToolPanels.tsx          # 工具调用结果面板（web_search / send_mail）
+│   │   ├── ToolPanels.css
+│   │   ├── StreamdownText.tsx      # 流式 Markdown / 代码 / Mermaid 渲染
+│   │   └── StreamdownText.css
+│   ├── App.css
+│   └── index.css
+├── index.html
+├── vite.config.ts                  # Vite 配置
+└── package.json
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## 快速开始
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+### 1. 环境要求
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+- Node.js 18+
+- 后端 `agui-backend` 已启动（默认 `http://localhost:3000`）
+
+### 2. 安装与启动
+
+```bash
+npm install
+npm run dev
+```
+
+默认运行在 `http://localhost:5173`。
+
+> 后端地址在 `src/App.tsx` 顶部的 `API_BASE` 常量中配置，默认指向 `http://localhost:3000`，与本地 `agui-backend` 一致。
+
+### 3. 使用
+
+在输入框输入问题，Enter 发送，Shift+Enter 换行。对话过程中：
+
+- 助手回答逐字流式显示
+- 涉及最新信息时触发 `web_search` 工具面板
+- 请求发送邮件时触发 `send_mail` 工具面板
+
+## 其他命令
+
+```bash
+npm run build    # 类型检查 + 生产构建（输出到 dist/）
+npm run preview  # 本地预览构建产物
+npm run lint     # ESLint 检查
 ```
