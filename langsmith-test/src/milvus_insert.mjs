@@ -51,6 +51,16 @@ const client = new MilvusClient({ address: MILVUS_ADDRESS });
  *  - 过滤出 .txt/.md 文件，每个文件包装成一条 Document（pageContent + metadata.source）
  *  - RecursiveCharacterTextSplitter 会先按段落、再按句子、最后按字符逐级切分，
  *    直到每块 ≤ chunkSize，同时相邻块保留 chunkOverlap 的字符重叠，避免语义被截断丢上下文
+ *
+ * 为什么不用 LangChain 专门的 loader（如 DirectoryLoader/TextLoader）：
+ *  - loader 的职责是「外部数据 → { pageContent, metadata } 文档数组」，而这里读的只是本地
+ *    平铺的纯文本文件，下面一个 readFileSync + map 即可等价完成，无需引入 langchain 核心依赖
+ *  - splitter.splitDocuments() 消费的是文档数组本身，并不关心数组由谁生产，
+ *    因此跳过 loader 不影响后续切块逻辑，Document 结构完全兼容
+ *  - DirectoryLoader.load() 产出的 metadata.source 是绝对路径，要溯源展示还得再 map 成纯文件名；
+ *    本实现直接写入文件名，一步到位
+ *  - 若将来数据源换成 PDF/HTML/URL/数据库等需要结构化解析的格式，再把这段换成对应 loader 即可，
+ *    下游的切块与入库逻辑无需改动
  * @param {string} dataDir 数据目录路径
  * @returns {Promise<{pageContent: string, metadata: {source: string}}[]>} 切块后的文档列表
  */
