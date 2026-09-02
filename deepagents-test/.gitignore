@@ -1,7 +1,14 @@
 # 运行时产物（脚本每次运行都会重建/清空）
+src/deepagents/workspace/
 src/deepagents/workspace-memory/
 src/deepagents/workspace-summarization/
 src/deepagents/output/
 
-# 本地环境变量
+node_modules/
+.pnpm-store-local/
+dist/
 .env
+.vscode
+*.log
+.DS_Store
+volumes/

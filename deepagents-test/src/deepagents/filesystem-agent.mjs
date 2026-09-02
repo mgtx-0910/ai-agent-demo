@@ -87,18 +87,36 @@ async function run(label, prompt) {
 }
 
 /**
- * 跑一轮预期被权限拒绝的提问：权限拦截会以异常抛出，这里捕获并打印错误原因
+ * 跑一轮预期被权限拒绝的提问。
+ * 注意：deepagents 的权限拦截不会抛给 invoke，而是把 permission denied 作为
+ * ToolMessage 反馈给模型、由模型自行收尾，invoke 正常返回。因此这里不再以
+ * 「是否抛异常」判定，而是断言两项事实：
+ *   ① 消息流中是否出现 permission denied 的拦截痕迹
+ *   ②（可选）越权目标文件是否真的没落盘
  * @param {string} label 场景名
  * @param {string} prompt 用户问题（应触发越权操作）
+ * @param {string} [forbiddenFile] 若该越权操作意图是写文件，传文件名用于副作用断言
  */
-async function expectDenied(label, prompt) {
+async function expectDenied(label, prompt, forbiddenFile = null) {
   console.log(`\n=== ${label}（预期拒绝）===\n`, prompt, "\n");
+  let messages;
   try {
-    await agent.invoke({ messages: [new HumanMessage(prompt)] }, { recursionLimit: 5 });
-    console.log("未触发拒绝（异常）"); // 若没抛错说明权限规则没拦住，属于 bug
+    ({ messages } = await agent.invoke(
+      { messages: [new HumanMessage(prompt)] },
+      { recursionLimit: 5 }
+    ));
   } catch (e) {
-    const msg = e.cause?.message ?? e.message; // deepagents 权限错误常在 cause 里携带详情
-    console.log("✗", msg);
+    // 权限错误不会冒泡到这里；能抛出来的通常是模型反复越权不死心触发的 recursion limit，
+    // 异常本身已证明它没能成功越权，剩下的交给磁盘副作用断言兜底
+    console.log("✗ invoke 异常中断:", e.message.split("\n")[0]);
+  }
+  // ① 拦截痕迹：模型实际收到过 permission denied 的工具反馈
+  const hit = (messages ?? []).some((m) => String(m.content).includes("permission denied"));
+  console.log(hit ? "✓ 已被权限拦截（模型收到 permission denied）" : "✗ 未见拦截痕迹");
+  // ② 磁盘副作用：越权要写的文件不允许真的出现
+  if (forbiddenFile) {
+    const leaked = fs.existsSync(path.join(workspaceDir, forbiddenFile));
+    console.log(leaked ? "✗ 越权文件仍被写入！" : "✓ 越权目标文件未落盘");
   }
 }
 
@@ -110,5 +128,5 @@ await run(
 
 // ② 越权场景 1：read_file 读 /secret.txt —— 被权限①拒绝
 await expectDenied("禁止读", "只调用 read_file，路径 /secret.txt。");
-// ③ 越权场景 2：write_file 写 /hack.txt —— 被权限③（全路径写默认拒绝）拦截
-await expectDenied("禁止写", "只调用 write_file，路径 /hack.txt，内容 test。");
+// ③ 越权场景 2：write_file 写 /hack.txt —— 被权限③（全路径写默认拒绝）拦截；用 hack.txt 做落盘断言
+await expectDenied("禁止写", "只调用 write_file，路径 /hack.txt，内容 test。", "hack.txt");
