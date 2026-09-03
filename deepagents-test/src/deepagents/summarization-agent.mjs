@@ -6,7 +6,15 @@
  *      交给模型生成摘要并落盘到 conversation_history/，同时从当前上下文里裁剪(keep)
  *   2. 摘要以文本形式继续参与后续对话：模型仍能回答"我们之前聊过什么"，但上下文窗口不再无限膨胀
  *   3. 用显式低阈值（8 条触发 / 保留 4 条）便于本 demo 短会话内就观察到"摘要被触发 + 历史文件生成"
- *      ——生产环境可省略 trigger/keep，由 deepagents 根据模型上下文 profile 自动推断
+ *      ——生产环境可省略 trigger/keep，deepagents 会按「模型 profile」自动推断，规则如下：
+ *        a. 模型带 profile.maxInputTokens（例如 initChatModel("openai:gpt-4o") 这类带 provider 前缀的模型名，
+ *           由 langchain 内置注册表注入 128000 等数值）→ 按上下文窗口比例走：
+ *           trigger = 用满 85%（fraction 0.85）、keep = 保留最近 10%（fraction 0.1，
+ *           按 token 预算从最新消息往回累加估算确定裁剪点）——窗口不同的模型，实际截断点自动跟着变；
+ *        b. 模型拿不到 profile（本 demo 的 new ChatOpenAI({ model: 'qwen-plus' }) 即此情形，实测 profile 为空）
+ *           → 回退固定兜底值：累计 170,000 token 才触发、摘要后只保留最近 6 条，并不会按 qwen 真实上下文截断；
+ *        c. 额外兜底：token 估算偏差会被运行时校准（tokenEstimationMultiplier 按溢出观察放大 1.1 倍），
+ *           若仍触发 ContextOverflowError，中间件会强制执行一次紧急摘要
  *
  * 运行方式：
  *   node src/deepagents/summarization-agent.mjs
@@ -70,7 +78,9 @@ const agent = createAgent({
       backend, // 摘要文件写入该文件系统
       historyPathPrefix, // 摘要落盘的虚拟目录
       summaryPrompt, // 自定义摘要提示词模板
-      // 低阈值便于 demo 触发摘要；生产环境可省略 trigger/keep，由模型 profile 自动推断
+      // 低阈值便于 demo 触发摘要。注意：此处若省略 trigger/keep，会走"模型 profile 自动推断"；
+      // 但本 demo 的 qwen-plus 实例 profile 为空，届时实际回退到固定兜底值
+      // （累计 17 万 token 才触发 / 摘要后保留 6 条），并不会按模型真实上下文截断——所以 demo 必须显式给阈值
       trigger: { type: "messages", value: 8 }, // 消息累计达到 8 条即触发一次摘要
       keep: { type: "messages", value: 4 }, // 摘要完成后上下文只保留最近 4 条消息
     }),
@@ -86,7 +96,19 @@ const prompts = [
   "根据我们聊过的内容，我的猫叫什么、住哪、喜欢喝什么、生日是哪天？每项一行。",
 ];
 
-// 摘要历史文件真实磁盘目录（虚拟路径去掉前导 / 后拼到工作区下）
+// historyDir 只是本脚本"算出来"的真实磁盘目录，脚本自身从不写入，只用它来读
+//（listHistoryFiles 列文件 / 收尾打印内容）。真正的写入者是 deepagents 库内部的
+// Summarization 中间件——即下方 createSummarizationMiddleware(...) 返回的 wrapModelCall 中间件，
+// 它挂在每次 agent.invoke 的"模型调用外层"，命中 trigger 阈值时自动执行，完整链路：
+//   invoke → wrapModelCall → shouldSummarize 命中 → performSummarization → summarizeMessages()
+//     ├─ offloadToBackend() ← 写盘：把被裁剪的旧消息 markdown 化后调 backend.write(path, text)；
+//     │                        backend 就是本脚本传入的 FilesystemBackend(rootDir=workspaceDir,
+//     │                        virtualMode=true)，虚拟路径 /conversation_history/session_x.md
+//     │                        经它映射落盘到本目录（文件名 session_<uuid前8位>.md，同一会话
+//     │                        多次触发会往同一文件追加"## Summarized at 时间戳"小节）
+//     └─ createSummary()     ← 调模型生成摘要文本；注意摘要本身不落盘，而是被包成
+//                                lc_source="summarization" 的 HumanMessage 放回消息列表，
+//                                继续参与后续对话（本脚本只是"事后读盘打印"给观察用）
 const historyDir = path.join(workspaceDir, historyPathPrefix.replace(/^\//, ""));
 
 /**
