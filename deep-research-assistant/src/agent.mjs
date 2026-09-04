@@ -16,7 +16,7 @@ import { fileURLToPath } from "node:url";
 import dedent from "dedent";
 import { ChatOpenAI } from "@langchain/openai";
 import { createCodeInterpreterMiddleware } from "@langchain/quickjs";
-import { createDeepAgent, FilesystemBackend } from "deepagents";
+import { createDeepAgent, FilesystemBackend, registerHarnessProfile } from "deepagents";
 
 import { webSearch } from "./tools/search.mjs";
 
@@ -25,6 +25,20 @@ const projectDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   "..",
 );
+
+// ----------------------------------------------------------------------------
+// 禁用框架自动注册的 general-purpose 通用子 Agent
+//
+// deepagents 默认会给每个 Agent 自动注册一个名为 general-purpose 的通用子
+// Agent（继承主 Agent 的全部工具与技能，但没有定制提示词与流程约束）。
+// 本项目的调研/分析/编辑流程已由 researcher、editor、analyst 三个专用子
+// Agent 覆盖；若模型误把任务委派给 general-purpose，会脱离上述流程约束、
+// 行为不可预期。故在此按模型 provider（本项目使用 ChatOpenAI，对应 "openai"）
+// 注册 harness profile，显式关闭该通用子 Agent。
+// ----------------------------------------------------------------------------
+registerHarnessProfile("openai", {
+  generalPurposeSubagent: { enabled: false },
+});
 
 // ----------------------------------------------------------------------------
 // researcher（调研员）子 Agent
@@ -147,7 +161,8 @@ const orchestratorPrompt = dedent`
 
   ## task 工具（子 Agent 委派）
 
-  **仅**以下 subagent_type 合法：researcher、analyst、editor、general-purpose。
+  本 Agent 仅注册了 3 个子 Agent，subagent_type **只接受**：researcher、analyst、editor。
+  （框架自带的 general-purpose 子 Agent 已被禁用，工具列表中不会出现，不要尝试编造其他类型）
 
   - web-research、report-writer 是**技能**（写作指南），**不是**子 Agent，禁止作为 subagent_type 调用
   - 报告起草、修订、定稿由**主 Agent 自己**用 write_file / edit_file 完成，不要委派 task
@@ -208,10 +223,10 @@ export function createIntelligenceDeskAgent() {
     apiKey,
     ...(baseURL
       ? {
-          configuration: {
-            baseURL,
-          },
-        }
+        configuration: {
+          baseURL,
+        },
+      }
       : {}),
   });
 
@@ -225,6 +240,7 @@ export function createIntelligenceDeskAgent() {
   // - memory:    启动时加载 AGENTS.md 作为长期记忆（中文报告偏好）
   // - skills:    加载 /skills/ 目录下技能（web-research、report-writer）
   // - subagents: 注册 researcher / editor / analyst 三个子 Agent
+  //              （框架默认的 general-purpose 已在模块顶部注册 profile 时禁用）
   return createDeepAgent({
     model: chatModel,
     systemPrompt: orchestratorPrompt,
