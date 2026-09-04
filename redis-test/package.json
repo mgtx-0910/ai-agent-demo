@@ -1,0 +1,21 @@
+{
+  "name": "redis-test",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "agent:redis-memory": "node src/agent-with-redis-memory.mjs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "@langchain/core": "^1.1.48",
+    "@langchain/openai": "^1.4.7",
+    "deepagents": "^1.10.2",
+    "dotenv": "^17.4.2",
+    "ioredis": "^5.11.0",
+    "langchain": "^1.4.2"
+  }
+}
