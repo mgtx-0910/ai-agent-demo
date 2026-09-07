@@ -150,6 +150,15 @@ const model = new ChatOpenAI({
 //   keep.messages    = 4 → 压缩后仅保留最近 4 条，更早消息被合成 1 条摘要
 //                           （langchain 内部以 HumanMessage 插回，并带
 //                            lc_source="summarization" 标记，随后被 agent 照常读入）
+//
+//   ※ 触发计数细节（读自 langchain 源码 summarization.js）：trigger.messages 数的
+//     是 state.messages 的总条数（messages.length），不区分 Human/AI/System/Tool——
+//     注入的记忆 SystemMessage、agent 系统提示（若前置为首条）都各占 1 条，
+//     也不管是否同属一轮。每轮对话约 +2 条，所以 8 条大致相当于 3~4 轮。
+//   ※ keep 的保留对象：先拆掉首条 SystemMessage（系统提示）再对真实对话截断，
+//     保留最近 4 条（会自动安全对齐，不拆散 AI 工具调用与其 ToolMessage）。
+//   ※ 多个 trigger 之间是 OR；单个 trigger 内同时写 messages/tokens/fraction 时是
+//     AND。本项目只配 messages，即"总量到 8 就压、不分谁发的"。
 const agent = createAgent({
   model,
   tools: [],

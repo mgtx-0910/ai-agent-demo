@@ -396,12 +396,19 @@ const agent = createAgent({
   systemPrompt:
     "你是会话助手。结合系统消息中的长期/会话记忆回答，中文简短。有对话摘要则据此继续。",
   middleware: [
-    // summarizationMiddleware：Redis 短期消息达到阈值就自动压缩成摘要
+    // summarizationMiddleware：Redis 短期消息达到阈值就自动压缩成摘要。
+    // 触发计数细节（读自 langchain 源码 summarization.js）：trigger.messages 数的
+    // 是 state.messages 的总条数，不区分 Human/AI/System/Tool——每轮注入的记忆
+    // SystemMessage、agent 系统提示（若前置）都各占 1 条；每轮对话约 +2 条，
+    // 所以「8 条」大致相当于 3~4 轮对话，而非 8 个用户提问。
+    // keep 保留的是「拆掉首条 SystemMessage 后的真实对话」最近 4 条（自动对齐，
+    // 不拆散 AI 工具调用与 ToolMessage）；多个 trigger 之间 OR、单 trigger 内
+    // messages/tokens/fraction 为 AND，本项目只用 messages。
     summarizationMiddleware({
       model, // 摘要也用同一个对话模型生成
       summaryPrompt, // 摘要提示词
-      trigger: { messages: 8 }, // 消息达到 8 条触发压缩
-      keep: { messages: 4 }, // 压缩后保留最近 4 条 + 1 条摘要
+      trigger: { messages: 8 }, // 消息总量达到 8 条即触发（不分消息类型）
+      keep: { messages: 4 }, // 压缩后保留最近 4 条真实对话 + 1 条摘要
     }),
   ],
 });
