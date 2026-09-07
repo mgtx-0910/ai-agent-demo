@@ -1,0 +1,37 @@
+{
+  "name": "mem0-test",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/mem0-test.mjs",
+    "cleanup": "node src/mem0-test.mjs --cleanup",
+    "agent": "node src/mem0-redis-mem0-agent.mjs",
+    "scoped-memory": "node src/mem0-scoped-memory-test.mjs add",
+    "scoped-memory:search": "node src/mem0-scoped-memory-test.mjs search",
+    "scoped-memory:cleanup": "node src/mem0-scoped-memory-test.mjs --cleanup",
+    "local-api": "node src/mem0-local-api-demo.mjs",
+    "local-api:search": "node src/mem0-local-api-demo.mjs search",
+    "local-api:list": "node src/mem0-local-api-demo.mjs list",
+    "local-api:cleanup": "node src/mem0-local-api-demo.mjs --cleanup",
+    "hybrid-search": "node src/mem0-hybrid-search-test.mjs add",
+    "hybrid-search:run": "node src/mem0-hybrid-search-test.mjs search",
+    "hybrid-search:cleanup": "node src/mem0-hybrid-search-test.mjs --cleanup"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "Mem0 记忆层实践：云端 API 基础操作、三种记忆 scope、本地 OpenAPI 调用、Redis 短期 + Mem0 长期分层 Agent",
+  "dependencies": {
+    "@langchain/core": "^1.1.48",
+    "@langchain/openai": "^1.4.7",
+    "dotenv": "^17.4.2",
+    "ioredis": "^5.11.1",
+    "langchain": "^1.4.4",
+    "mem0ai": "^3.0.6",
+    "zod": "^4.4.3"
+  },
+  "allowScripts": {
+    "better-sqlite3@12.11.1": true
+  }
+}
