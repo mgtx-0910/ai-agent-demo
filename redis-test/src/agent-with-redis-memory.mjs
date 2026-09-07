@@ -14,7 +14,7 @@
 import "dotenv/config";
 import Redis from "ioredis";
 import * as readline from "node:readline/promises";
-import { stdin , stdout } from "node:process";
+import { stdin, stdout } from "node:process";
 import { ChatOpenAI } from "@langchain/openai";
 import {
   mapChatMessagesToStoredMessages,
@@ -33,7 +33,9 @@ const KEY_PREFIX = process.env.MEMORY_KEY_PREFIX ?? "agent:short_memory"; // Red
 const SESSION_ID = process.env.MEMORY_SESSION_ID ?? "demo_user_001"; // 会话标识（可多开模拟多用户）
 
 // ----------------------------------------------------------------------------
-// 对话压缩提示词：消息累积过多时，由 summarizationMiddleware 调用 LLM 生成摘要
+// 对话压缩提示词：消息累积过多时，由 summarizationMiddleware 调用 LLM 生成摘要。
+// 模板中的 {messages} 由中间件自动替换为「待压缩的历史消息」；生成的摘要文字
+// 会以一条 HumanMessage 的形式放回对话历史，作为后续轮次的上下文。
 // ----------------------------------------------------------------------------
 const summaryPrompt = `你是对话摘要助手。请用中文总结以下对话，包含：
 1. 讨论的主要话题
@@ -124,15 +126,20 @@ const store = new RedisMessageStore({
 
 // 对话模型（OpenAI 兼容接口，temperature=0 保证输出稳定）
 const model = new ChatOpenAI({
-  model: process.env.MODEL_NAME,
+  model: process.env.OPENAI_MODEL,
   apiKey: process.env.OPENAI_API_KEY,
   configuration: { baseURL: process.env.OPENAI_BASE_URL },
   temperature: 0,
 });
 
-// 无工具 Agent + 摘要中间件：
-// trigger.messages = 8 → 消息达到 8 条时触发压缩
-// keep.messages    = 4 → 压缩后仅保留最近 4 条 + 摘要
+// 无工具 Agent + 摘要中间件。压缩动作本身由 langchain 的 summarizationMiddleware
+// 在每次 agent.invoke() 前自动执行，本文件没有任何自写的压缩逻辑；摘要文字由
+// 下方同一个 model（ChatOpenAI）按 summaryPrompt 调用生成（见依赖源码
+// node_modules/langchain/dist/agents/middleware/summarization.js）。
+//   trigger.messages = 8 → 消息达到 8 条时触发压缩
+//   keep.messages    = 4 → 压缩后仅保留最近 4 条，更早消息被合成 1 条摘要
+//                           （langchain 内部以 HumanMessage 插回，并带
+//                            lc_source="summarization" 标记，随后被 agent 照常读入）
 const agent = createAgent({
   model,
   tools: [],

@@ -81,5 +81,5 @@ async function runRedisDemo() {
   }
 }
 
-// 运行
-runRedisDemo();
+// 运行（结束时关闭连接，避免进程挂住不退出）
+runRedisDemo().finally(() => redis.quit());

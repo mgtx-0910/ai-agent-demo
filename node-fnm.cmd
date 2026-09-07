@@ -62,6 +62,8 @@ REM Convert existing relative file-path args to absolute BEFORE any cd.
 REM The .env cd below changes the working directory, so a relative path arg
 REM would be resolved by node against the WRONG cwd -> duplicated directory
 REM names in the path -> "Cannot find module".
+REM NOTE: goto/call targets MUST be single-colon labels (:label). Lines like
+REM "::label" are comment-only and CANNOT be found by goto/call!
 set "ARGS="
 :convert_args
 if "%~1"=="" goto run_node
@@ -77,19 +79,29 @@ if defined ENV_ROOT cd /d "%ENV_ROOT%"
 "!NODE_EXE!" %ARGS%
 exit /b %errorlevel%
 
+REM Walk upward looking for a directory that contains a .env file.
+REM NOTE: do NOT use "for %%D in (...) do set PAR=%%~dpD" to compute the
+REM parent here - %%~dpD expands wrongly for a bare drive root (e.g. "E:\")
+REM and the loop never terminates. Build "<dir>\.." and normalize it with
+REM %%~fP instead, and bail out when the value stops changing.
 :search_env
 if not defined ENV_ROOT exit /b 1
 if exist "%ENV_ROOT%\.env" exit /b 0
-for %%D in ("%ENV_ROOT%") do set "PAR=%%~dpD"
-if "%PAR%"=="%ENV_ROOT%\" set "ENV_ROOT="
+set "ENV_TMP=%ENV_ROOT%"
+if "!ENV_TMP:~-1!"=="\" set "ENV_TMP=!ENV_TMP:~0,-1!"
+for %%P in ("!ENV_TMP!\..") do set "ENV_PAR=%%~fP"
+if /i "!ENV_PAR!"=="!ENV_ROOT!" set "ENV_ROOT="
 if not defined ENV_ROOT exit /b 1
-set "ENV_ROOT=%PAR:~0,-1%"
+set "ENV_ROOT=!ENV_PAR!"
 goto :search_env
 
+REM Walk upward looking for a directory that contains a .node-version file.
+REM Same parent-walk technique as :search_env (safe on drive roots).
 :search_node
 if exist "%NODE_ROOT%\.node-version" exit /b 0
-for %%D in ("%NODE_ROOT%") do set "PAR=%%~dpD"
-set "PAR_NO_SLASH=%PAR:~0,-1%"
-if "%PAR_NO_SLASH%"=="%NODE_ROOT%" exit /b 1
-set "NODE_ROOT=%PAR_NO_SLASH%"
+set "NODE_TMP=%NODE_ROOT%"
+if "!NODE_TMP:~-1!"=="\" set "NODE_TMP=!NODE_TMP:~0,-1!"
+for %%P in ("!NODE_TMP!\..") do set "NODE_PAR=%%~fP"
+if /i "!NODE_PAR!"=="!NODE_ROOT!" exit /b 1
+set "NODE_ROOT=!NODE_PAR!"
 goto :search_node
