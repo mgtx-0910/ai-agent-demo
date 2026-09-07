@@ -16,6 +16,11 @@ import Redis from "ioredis";
 import * as readline from "node:readline/promises";
 import { stdin, stdout } from "node:process";
 import { ChatOpenAI } from "@langchain/openai";
+// 记忆序列化协议：ChatMessage 类实例（HumanMessage/AIMessage...）无法直接
+// JSON.stringify 落库，需先经 mapChatMessagesToStoredMessages 摊平成纯 JSON
+// （StoredMessage：{ type: "human"|"ai"|"system", data: { content, ... } }）；
+// 读回时再由 mapStoredMessagesToChatMessages 按 type 重建对应消息实例，
+// 两个函数成对使用，保证 Redis 里存的是可跨进程/跨语言读取的可移植结构。
 import {
   mapChatMessagesToStoredMessages,
   mapStoredMessagesToChatMessages,
@@ -65,14 +70,19 @@ class RedisMessageStore {
     return `${this.keyPrefix}:${sessionId}:messages`;
   }
 
-  // 读取并反序列化历史消息；无记录时返回空数组
+  // 读取并反序列化历史消息；无记录时返回空数组。
+  // JSON.parse 拿到的是 StoredMessage 纯数据，mapStoredMessagesToChatMessages
+  // 会按每条的 type 字段重建为 HumanMessage / AIMessage / SystemMessage 等
+  // 类型化实例，供 agent 直接作为对话历史使用。
   async loadMessages(sessionId) {
     const raw = await this.redis.get(this.messagesKey(sessionId));
     if (!raw) return [];
     return mapStoredMessagesToChatMessages(JSON.parse(raw));
   }
 
-  // 序列化并写回消息，同时刷新 TTL（每轮对话都会续期）
+  // 序列化并写回消息，同时刷新 TTL（每轮对话都会续期）。
+  // mapChatMessagesToStoredMessages 等价于对每条消息调 toDict()，把类实例
+  // 摊平成可持久化的纯 JSON（StoredMessage），再 JSON.stringify 存入 Redis。
   async saveMessages(sessionId, messages) {
     const payload = JSON.stringify(mapChatMessagesToStoredMessages(messages));
     await this.redis.set(this.messagesKey(sessionId), payload, "EX", this.ttlSeconds);

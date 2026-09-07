@@ -102,11 +102,11 @@ async function main() {
   }
 
   // 连接 Mem0 云端（MEM0_API_KEY 在 .env 中配置）
-  const client = new MemoryClient({ 
+  const client = new MemoryClient({
     apiKey: process.env.MEM0_API_KEY
   });
   // 命令行动作：add / search / --cleanup
-  const action = process.argv[2] ?? "add";
+  const action = process.argv[2] ?? "search";
 
   // --cleanup：清除三种 scope 下的测试记忆
   if (process.argv.includes("--cleanup")) {

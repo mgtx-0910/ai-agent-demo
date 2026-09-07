@@ -55,6 +55,22 @@ docker compose up -d
 - RedisInsight：http://localhost:5540 （Redis 官方 Web GUI）
 - 数据持久化在 `volumes/redis` 与 `volumes/redisinsight`
 
+#### RedisInsight 可视化连接（首次需手动添加数据库）
+
+浏览器打开 `http://localhost:5540` 进入 RedisInsight。注意：**首次使用并不会直接看到数据**，需要先点击 `Add Redis database` 手动添加一个数据库，关键字段如下：
+
+| 字段 | 填写 | 说明 |
+| ---- | ---- | ---- |
+| Host | `host.docker.internal` | **不能写 `127.0.0.1`**。RedisInsight 和 Redis 都跑在 Docker 容器里，容器内的 `127.0.0.1` 指向的是它自己而不是你的电脑；`host.docker.internal` 是 Docker Desktop 提供的「宿主机」别名，会先回宿主、再经宿主机的 `6379` 端口转发到 `agent_redis` 容器 |
+| Port | `6379` | Redis 映射到宿主机的端口，保持默认即可 |
+| Database Alias | 随意（如 `agent_redis`） | 仅用于界面展示，便于区分多个连接 |
+| Username | **留空** | `Username` 是 Redis Cloud 等云托管版的鉴权字段，**本地自建的 Redis 不需要填**，填了反而会导致连接失败 |
+| Password | 留空 | 本示例的 Redis 未开启 `requirepass` |
+
+填写后点击 `Test Connection` 校验，通过后点 `Save Database` 保存。连接成功后即可在界面中浏览 `agent:short_memory:*` 等 key、查看消息内容与其剩余 TTL。
+
+> 小提示：`host.docker.internal` 依赖 Docker Desktop（Windows / macOS）的宿主别名机制。若不可用，由于两容器同处 `common-network`，也可把 Host 直接填容器名 `agent_redis`、Port 填 `6379`，走容器内网同样能连通。
+
 ### 2. 运行 Demo 1：核心数据类型
 
 直连 `localhost:6379`，无需任何配置：

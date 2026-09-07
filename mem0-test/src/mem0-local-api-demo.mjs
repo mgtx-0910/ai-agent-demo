@@ -19,9 +19,9 @@ import "dotenv/config";
 // 本地 mem0 服务地址（末尾斜杠会被客户端自动去掉）
 const BASE_URL = "http://localhost:8888"
 // 演示用用户标识：记忆按该 id 隔离
-const USER_ID =  "local_api_demo";
+const USER_ID = "local_api_demo";
 // 服务端 API Key（写入 X-API-Key 请求头），未开启鉴权时可留空
-const API_KEY = process.env.MEM0_LOCAL_API_KEY;
+const API_KEY = process.env.MEM0_LOCAL_API_KEY || '';
 
 function log(title, data) {
   console.log(`\n=== ${title} ===`);
