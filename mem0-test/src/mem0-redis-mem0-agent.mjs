@@ -59,6 +59,9 @@ const SESSION_ID = "session_002";
 // 语义检索时每个维度返回的最多记忆条数
 const MEM0_TOP_K = Number(process.env.MEM0_TOP_K ?? 5);
 
+// 调试开关：DEBUG_SUMMARIZE=1 时，每次触发压缩会打印「被压缩的消息 + 摘要原文」
+const DEBUG_SUMMARIZE = process.env.DEBUG_SUMMARIZE === "1";
+
 // ============================================================================
 // memorySchema：分类器必须输出的结构化字段（由 zod 描述，LLM 按此约束返回）
 // ============================================================================
@@ -316,6 +319,34 @@ async function invokeWithMemory(agent, redisStore, mem0Store, sessionId, userTex
   // ⑤ 写回 Redis：剔除 Mem0 注入的 SystemMessage，再落库并刷新 TTL
   const redisMessages = messagesForRedis(result.messages);
   const dropped = result.messages.length - redisMessages.length;
+
+  // —— 调试（DEBUG_SUMMARIZE=1）：查看本轮被压缩的消息与生成的摘要 ——
+  if (DEBUG_SUMMARIZE) {
+    // ① 定位摘要消息：langchain 压缩后早期消息会替换为一条带
+    //    lc_source="summarization" 标记的 HumanMessage
+    const summaryMsg = result.messages.find(
+      (m) => m.additional_kwargs?.lc_source === "summarization",
+    );
+    if (summaryMsg) {
+      // ② 被压缩的 = invoke 前 history 里有、本轮结果里已不存在的那几条
+      const kept = new Set(
+        result.messages
+          .filter((m) => m.additional_kwargs?.lc_source !== "summarization")
+          .map((m) => m.id),
+      );
+      const compressed = history.filter((m) => !kept.has(m.id));
+      console.log("========== 本次摘要压缩明细 ==========");
+      compressed.forEach((m) =>
+        console.log(`  [${m._getType()}] ${String(m.content).slice(0, 120)}`),
+      );
+      // ③ 摘要正文：去掉消息开头固定的摘要前缀段（首个空行前）
+      const text = String(summaryMsg.content);
+      const sep = text.indexOf("\n\n");
+      console.log("  生成摘要:", sep >= 0 ? text.slice(sep + 2) : text);
+      console.log("======================================");
+    }
+  }
+
   await redisStore.saveMessages(sessionId, redisMessages);
   const ttl = await redisStore.ttl(sessionId);
   console.log(
@@ -457,7 +488,10 @@ try {
 
     console.log("\n助手:", assistantText);
     console.log(`Redis 消息数: ${redisMessages.length}`);
-    // 消息数增长少于预期 → 本轮已触发摘要压缩
+    // 判断本轮是否触发过摘要压缩：
+    // 正常每轮 Redis 消息数固定 +2（新增用户 1 条 + 助手 1 条），应等于
+    // prevCount + 2；一旦 summarizationMiddleware 把早期消息压成 1 条摘要，
+    // 净增长会小于 2（甚至总条数变少），据此打印「已触发压缩」提示。
     if (redisMessages.length < prevCount + 2) {
       console.log("  ⚡ 已触发压缩");
     }

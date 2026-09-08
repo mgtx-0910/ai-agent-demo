@@ -37,6 +37,9 @@ const MEMORY_TTL = Number(process.env.MEMORY_TTL_SECONDS ?? 1800); // 记忆过�
 const KEY_PREFIX = process.env.MEMORY_KEY_PREFIX ?? "agent:short_memory"; // Redis key 前缀
 const SESSION_ID = process.env.MEMORY_SESSION_ID ?? "demo_user_001"; // 会话标识（可多开模拟多用户）
 
+// 调试开关：DEBUG_SUMMARIZE=1 时，每次触发压缩会打印「被压缩的消息 + 摘要原文」
+const DEBUG_SUMMARIZE = process.env.DEBUG_SUMMARIZE === "1";
+
 // ----------------------------------------------------------------------------
 // 对话压缩提示词：消息累积过多时，由 summarizationMiddleware 调用 LLM 生成摘要。
 // 模板中的 {messages} 由中间件自动替换为「待压缩的历史消息」；生成的摘要文字
@@ -113,6 +116,33 @@ async function invokeWithMemory(agent, store, sessionId, userText) {
     { messages: [...history, new HumanMessage(userText)] },
     { recursionLimit: 30 },
   );
+
+  // —— 调试（DEBUG_SUMMARIZE=1）：查看本轮被压缩的消息与生成的摘要 ——
+  if (DEBUG_SUMMARIZE) {
+    // ① 定位摘要消息：langchain 压缩后早期消息会替换为一条带
+    //    lc_source="summarization" 标记的 HumanMessage
+    const summaryMsg = result.messages.find(
+      (m) => m.additional_kwargs?.lc_source === "summarization",
+    );
+    if (summaryMsg) {
+      // ② 被压缩的 = invoke 前 history 里有、本轮结果里已不存在的那几条
+      const kept = new Set(
+        result.messages
+          .filter((m) => m.additional_kwargs?.lc_source !== "summarization")
+          .map((m) => m.id),
+      );
+      const compressed = history.filter((m) => !kept.has(m.id));
+      console.log("========== 本次摘要压缩明细 ==========");
+      compressed.forEach((m) =>
+        console.log(`  [${m._getType()}] ${String(m.content).slice(0, 120)}`),
+      );
+      // ③ 摘要正文：去掉消息开头固定的摘要前缀段（首个空行前）
+      const text = String(summaryMsg.content);
+      const sep = text.indexOf("\n\n");
+      console.log("  生成摘要:", sep >= 0 ? text.slice(sep + 2) : text);
+      console.log("======================================");
+    }
+  }
 
   await store.saveMessages(sessionId, result.messages);
   const ttl = await store.ttl(sessionId);
@@ -203,7 +233,11 @@ try {
     const { messages } = await invokeWithMemory(agent, store, SESSION_ID, userText);
     console.log("\n助手:", messages.at(-1)?.content);
     console.log(`当前消息数: ${messages.length}`);
-    // 消息数增长少于预期 => 中间件已把早期消息压缩成摘要
+    // 判断本轮是否触发过摘要压缩：
+    // 正常情况下每轮对话 Redis 消息数固定 +2（新增用户 1 条 + 助手 1 条），
+    // 即 messages.length 应等于 prevCount + 2；一旦 summarizationMiddleware
+    // 把早期消息压成 1 条摘要，净增长就会小于 2（甚至总条数变少），
+    // 据此判定「已触发压缩」并打印提示。
     if (messages.length < prevCount + 2) {
       console.log("  ⚡ 已触发压缩");
     }
