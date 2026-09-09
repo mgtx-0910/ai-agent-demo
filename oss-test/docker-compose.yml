@@ -1,0 +1,41 @@
+# 注：顶层 version 字段在 Docker Compose v2 已废弃并会被忽略，故不写
+
+services:
+  # minio:
+  #   image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+  #   container_name: minio-server
+  #   restart: always
+  #   ports:
+  #     # S3 对象存储API端口（程序对接用）——注意 9000 在本机落在 Windows 保留段(8947-9046)，见下方 rustfs 注释
+  #     - "29000:9000"
+  #     # Web图形控制台端口（浏览器访问UI）
+  #     - "29001:9001"
+  #   environment:
+  #     # 登录控制台、S3接口的账号（至少3位）
+  #     MINIO_ROOT_USER: admin
+  #     # 登录密码（至少8位，数字+字母）
+  #     MINIO_ROOT_PASSWORD: Admin@123456
+  #   volumes:
+  #     # 持久化数据到本地 ./minio-data 文件夹
+  #     - ./volumes/minio-data:/data
+  #   command: server /data --console-address ":9001"
+  rustfs:
+    image: rustfs/rustfs:latest
+    container_name: rustfs-server
+    restart: always
+    # 宿主映射端口的选择：9000/9001 在 Windows 保留段(8947-9046)绑不了；19000/19001 已被已有容器
+    # minio-dev 占用。故改用 29000/29001。容器内部仍是 9000/9001，只有宿主机侧端口变了
+    ports:
+      - "29000:9000"    # S3 API：宿主机 29000 → 容器 9000
+      - "29001:9001"    # Web控制台：宿主机 29001 → 容器 9001
+    environment:
+      TZ: Asia/Shanghai
+      # S3/后台登录账号密钥
+      RUSTFS_ACCESS_KEY: admin
+      RUSTFS_SECRET_KEY: Admin@123456
+      # 开启Web管理控制台
+      RUSTFS_CONSOLE_ENABLE: "true"
+    volumes:
+      - ./volumes/rustfs-data:/data
+      - ./volumes/rustfs-logs:/logs
+    command: server /data
