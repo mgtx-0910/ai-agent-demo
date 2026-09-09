@@ -70,6 +70,28 @@
         {
             "type": "node",
             "request": "launch",
+            "name": "Debug nest-feature",
+            "runtimeExecutable": "${workspaceFolder}/node-npm.cmd",
+            "runtimeArgs": [
+                "run",
+                "start:debug"
+            ],
+            "cwd": "${workspaceFolder}/nest-feature",
+            "console": "integratedTerminal",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "port": 9255,
+            "sourceMaps": true,
+            "resolveSourceMapLocations": [
+                "${workspaceFolder}/**",
+                "!**/node_modules/**"
+            ],
+            "autoAttachChildProcesses": true
+        },
+        {
+            "type": "node",
+            "request": "launch",
             "name": "Debug hello-nest-langchain",
             "runtimeExecutable": "${workspaceFolder}/node-npm.cmd",
             "runtimeArgs": [

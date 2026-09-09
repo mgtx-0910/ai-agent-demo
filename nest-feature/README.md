@@ -41,20 +41,129 @@ nest-feature/
         └── interfaces/               #   ApiResponse / JwtPayload
 ```
 
-## 请求生命周期（本项目覆盖了哪几步）
+## 数据流流转
+
+### 一次请求在框架内的流转顺序
+
+Nest 处理 HTTP 请求有一套固定的「洋葱模型」顺序，本项目把每一步都落到了真实代码上：
 
 ```
-请求进入
-  → ① Interceptor（TransformInterceptor：打请求日志）
-  → ② Guard（AuthGuard：鉴权 → 越权判断 → 写 request.user）
-  → ③ Pipe（ParsePositiveIntPipe / ParseAgePipe：参数转换 + 校验）
-  → ④ Controller 处理（@CurrentUser() 取登录用户）
-  → ⑤ Service 业务逻辑
-  → ⑥ 成功：回到 ① 的 Interceptor 包 { code:200, data }
-      失败：抛出的异常被 Filter 统一格式化成 { code, data:null, message }
+HTTP 请求
+  │   进入时：query / params 是字符串、body 是原始 JSON 对象
+  ▼
+① AuthGuard 守卫（auth.guard.ts，仅 @UseGuards 标记的接口）
+  │   · 取请求头 Authorization → 拆出 Bearer token
+  │   · AuthService.validateToken(token) → 还原 JwtPayload（查不到 → 401）
+  │   · 授权：路由带 :id 时，普通用户访问他人资源 → 403
+  │   · 放行后把用户信息挂到 request.user
+  │   （注意：若在这里被拒绝，流程直接跳到 ⑥ 异常分支，不会执行到 ②）
+  ▼
+② TransformInterceptor 全局拦截器（transform.interceptor.ts）
+  │   · 先打印 [请求] 日志
+  │   · 返回一个 RxJS 流（next.handle()），等下游全部处理完再统一"打包"
+  ▼
+③ Pipe 参数管道（parse-positive-int.pipe.ts / parse-age.pipe.ts）
+  │   · 在参数进 Controller 前做「字符串 → number」转换 + 业务校验
+  │   · 非法值（"abc"、负数、超范围 age）→ 抛 BadRequestException（400）
+  ▼
+④ Controller 方法（user.controller.ts）
+  │   · 此时拿到的 id 已是 number；@CurrentUser() 装饰器再从
+  │     request.user 把登录用户"抽"成方法参数
+  │   · 组装好参数，调用 Service
+  ▼
+⑤ Service 业务逻辑（user.service.ts）
+  │   · 操作内存数组 users（相当于数据库）
+  │   · 命中 → 返回数据；未命中 → 抛 NotFoundException（404）
+  ▼
+⑥ 汇合点
+  ├─ 成功路径：返回值沿 ② 的流转回拦截器
+  │     map：包成 { code: 200, data, message: '成功' }
+  │     tap：打印 [响应] 耗时日志
+  └─ 异常路径：上面任何一步抛出的异常都被全局 Filter
+        （all-exceptions.filter.ts）截获
+        统一格式化为 { code, data: null, message } 写回响应
+  ▼
+HTTP 响应（成功/失败共用同一个 { code, data, message } 外壳）
 ```
 
-> 路由上无 Guard 的接口（POST/GET 列表、DELETE）会跳过 ②；有 Pipe 的参数仍会被 ③ 校验。
+> **为什么有些请求看不到 `[请求]` 日志？**
+> 打日志的是 `② Interceptor`。因为 **Guard（①）先于 Interceptor（②）执行**，
+> 若请求在 Guard 阶段就被拒绝（无 Token → 401、越权 → 403），流程在 ① 直接跳到异常分支，
+> **根本不会执行到 ②**，所以服务端不打印 `[请求]` 日志——但响应仍由全局 Filter 兜底返回。
+> 反之，正常通过的请求（含 `GET /user/2` 这类）能看到日志。
+
+### 流转途中"数据"的载体变化
+
+| 阶段 | 数据形态 | 例子 |
+|---|---|---|
+| 进入框架前 | `params.id = "2"`、`query.age = "25"`、body 为 JSON 对象 | URL 里全是字符串 |
+| Guard 校验后 | 注入 `request.user: JwtPayload` | `{ id: 2, username: 'zhangsan', role: 'user' }` |
+| Pipe 转换后 | Controller 里的参数已是 `number` | `id = 2`（不再能误用字符串比较） |
+| Controller 取用户 | `@CurrentUser()` 读取 `request.user` 注入参数 | `currentUser.username` |
+| Service 产出 | `User` 实体 / 抛 `HttpException` | `{ id, username, name, age, role }` |
+| 响应外壳 | `ApiResponse<T>`：`{ code, data, message }` | 成功 `code:200`，失败 `code` 为 HTTP 状态码 |
+
+`request.user` 贯穿 Guard → Controller 的传递链：`AuthGuard` 写入 → `@CurrentUser()`
+装饰器（`current-user.decorator.ts`）读取，中间不经过路由方法本身。
+
+### 示例接口走查
+
+以 3 个代表性接口看数据流在「全链路 / 无鉴权 / 失败路径」三种形态下的表现。
+
+**① `GET /user/:id` —— 最完整的链路（Guard → Interceptor → Pipe → Controller → Service）**
+
+普通用户 `user-token-456` 查自己：
+
+```bash
+curl -i -H "Authorization: Bearer user-token-456" http://localhost:3001/user/2
+```
+
+服务端日志会依次出现：
+
+```
+① Guard：validateToken(user-token-456) 命中 → request.user = { id:2, role:'user' }
+[请求] 2026-..  GET /user/2            ← ② 拦截器入口（在此打印 [请求] 日志）
+                                        ← ③ Pipe："2" → number 2
+                                        ← ④⑤ Controller 调 Service.findOne(2)
+[响应] 2026-..  GET /user/2 耗时 1ms   ← ⑥ 回到拦截器，map 包壳
+```
+
+响应：
+
+```json
+{ "code": 200, "data": { "id": 2, "username": "zhangsan", "name": "张三", "age": 25, "role": "user" }, "message": "成功" }
+```
+
+> 若 Guard 越权校验失败（普通用户查 id=1），流程在 ① 就被掐断——这时还没执行到打日志的拦截器，
+> 所以**看不到 `[请求]` 日志**，直接在异常分支 ⑥ 返回 `403`。
+
+**② `GET /user/age-demo?age=25` —— 跳过 Guard，只走 Pipe 的转换/校验**
+
+```bash
+curl http://localhost:3001/user/age-demo?age=25
+```
+
+数据流只有 `Interceptor → Pipe → Controller → Interceptor`：
+`query.age = "25"`（字符串）→ `ParseAgePipe` 转成数字 `25` → Controller 里拼装返回：
+
+```json
+{ "code": 200, "data": { "age": 25, "type": "number" }, "message": "成功" }
+```
+
+**③ `DELETE /user/abc` —— 失败路径：Pipe 抛 400，被全局 Filter 统一兜底**
+
+```bash
+curl -i -X DELETE http://localhost:3001/user/abc
+```
+
+`ParsePositiveIntPipe` 发现 `"abc"` 不是正整数 → 抛 `BadRequestException`。
+该异常不再继续往 Controller 走，而是被 `AllExceptionsFilter` 捕获并格式化成：
+
+```json
+{ "code": 400, "data": null, "message": "参数 id 必须是正整数，当前值: abc" }
+```
+
+> 关键点：**成功和失败的响应外壳完全一致**，前端只需解析 `{ code, data, message }` 一种结构。
 
 ## 快速开始
 
@@ -72,12 +181,12 @@ pnpm run start:dev   # 开发模式（热重载）
 pnpm run start
 ```
 
-默认监听 `3000` 端口，可用环境变量 `PORT` 覆盖。
+默认监听 `3001` 端口，可用环境变量 `PORT` 覆盖。
 
 ### 3. 探活
 
 ```bash
-curl http://localhost:3000
+curl http://localhost:3001
 # {"code":200,"data":"Hello World!","message":"成功"}
 ```
 
@@ -107,33 +216,33 @@ curl http://localhost:3000
 
 ```bash
 # 1. 无 Token 访问受保护接口 → 401
-curl http://localhost:3000/user/2
+curl http://localhost:3001/user/2
 
 # 2. 普通用户（user-token-456）查自己 → 200
-curl -H "Authorization: Bearer user-token-456" http://localhost:3000/user/2
+curl -H "Authorization: Bearer user-token-456" http://localhost:3001/user/2
 
 # 3. 普通用户查他人（id=1）→ 403 越权
-curl -H "Authorization: Bearer user-token-456" http://localhost:3000/user/1
+curl -H "Authorization: Bearer user-token-456" http://localhost:3001/user/1
 
 # 4. 管理员（admin-token-123）查任意用户 → 200
-curl -H "Authorization: Bearer admin-token-123" http://localhost:3000/user/2
+curl -H "Authorization: Bearer admin-token-123" http://localhost:3001/user/2
 
 # 5. Pipe：age 字符串转数字 → {"age":25,"type":"number"}
-curl "http://localhost:3000/user/age-demo?age=25"
+curl "http://localhost:3001/user/age-demo?age=25"
 
 # 6. Pipe：非法 ID → 400（DELETE 无 Guard，由 Pipe 拦截）
-curl -X DELETE http://localhost:3000/user/abc
+curl -X DELETE http://localhost:3001/user/abc
 
 # 7. 用户不存在 → 404
-curl -H "Authorization: Bearer admin-token-123" http://localhost:3000/user/999
+curl -H "Authorization: Bearer admin-token-123" http://localhost:3001/user/999
 
 # 8. JWT 签发 → 验签闭环
-curl -X POST http://localhost:3000/jwt-test/sign \
+curl -X POST http://localhost:3001/jwt-test/sign \
   -H "Content-Type: application/json" \
   -d '{"sub": 1, "username": "admin"}'
 # → {"access_token":"eyJhbGciOiJIUzI1NiIs..."}
 
-curl http://localhost:3000/jwt-test/verify \
+curl http://localhost:3001/jwt-test/verify \
   -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
 # → {"sub":1,"username":"admin","iat":...,"exp":...}
 ```

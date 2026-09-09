@@ -20,8 +20,8 @@ async function bootstrap() {
   // 全局响应拦截器：所有成功响应统一包裹成 { code: 200, data, message: '成功' }
   app.useGlobalInterceptors(new TransformInterceptor());
 
-  // 监听端口：支持环境变量 PORT 覆盖，默认 3000
-  await app.listen(process.env.PORT ?? 3000);
-  console.log(`应用已启动: http://localhost:${process.env.PORT ?? 3000}`);
+  // 监听端口：支持环境变量 PORT 覆盖，默认 3001（3000 被 mem0 dashboard 容器占用）
+  await app.listen(process.env.PORT ?? 3001);
+  console.log(`应用已启动: http://localhost:${process.env.PORT ?? 3001}`);
 }
 bootstrap();
