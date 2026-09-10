@@ -165,6 +165,64 @@ curl -i -X DELETE http://localhost:3001/user/abc
 
 > 关键点：**成功和失败的响应外壳完全一致**，前端只需解析 `{ code, data, message }` 一种结构。
 
+## JWT 认证机制（`jwt-test/`）
+
+> **先纠正一个常见误区**：JWT 的 payload 是 `base64url` 编码的**明文**，不是密文；前端不做加密，后端也不做"解密"。
+> 整条链路是 **后端签发 → 前端存储/携带 → 后端验签**，安全性来自**签名**，而非加密。
+
+### 1. Token 的三段结构
+
+```
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9 . eyJzdWIiOjEsInVzZXJuYW1lIjoiYWRtaW4ifQ . SflKxwRJSMeKKF2Q...
+        └── header（算法）                    └── payload（数据，明文）               └── signature（签名）
+```
+
+- **header / payload**：JSON 经 `base64url` 编码，**任何人都能还原**（编码 ≠ 加密）：
+
+  ```bash
+  node -e "console.log(Buffer.from('<payload 段>','base64url').toString())"
+  # → {"sub":1,"username":"admin","iat":...,"exp":...}
+  ```
+
+- **signature**：服务端用密钥对前两段做 HMAC，公式为
+  `HMAC-SHA256(base64url(header) + "." + base64url(payload), secret)`
+
+所以 payload 可以随便改，但**改完签不出来**——后端重算签名一比对，就知道有没有被篡改。
+
+### 2. 完整运转时序
+
+| 步骤 | 做什么 | 本项目位置 |
+|---|---|---|
+| ① 签发 | 载荷 + 密钥 → 签名，产出 `access_token` | `JwtTestService.sign()`；密钥与过期时间在根模块全局注册 `JwtModule.register({ secret, signOptions: { expiresIn: '1h' } })` |
+| ② 返回 | 接口返回 `{ access_token }` | `POST /jwt-test/sign` |
+| ③ 前端存储 | 放进 `localStorage` 或 `httpOnly Cookie` | 前端代码 |
+| ④ 前端携带 | 每个请求附 `Authorization: Bearer <token>` | 前端代码 |
+| ⑤ 后端提取 | 从请求头切出 token 字符串 | `JwtTestController.extractBearerToken()` / `AuthGuard.extractToken()` |
+| ⑥ 后端验签 | 用同一 `secret` 重算签名比对 + 校验 `exp`，通过则还原载荷 | `JwtTestService.verify()` → `jwtService.verify(token)` |
+| ⑦ 挂载用户 | 写入 `request.user`，业务层用 `@CurrentUser()` 取用 | `AuthGuard.canActivate()` / `current-user.decorator.ts` |
+
+### 3. 为什么说"后端不解密"
+
+- 标准 JWT 是 **JWS（三段式，只签名不加密）**，不是 **JWE（五段式，才加密）**；
+- 后端做的是 **验签（verify）**：`jwtService.verify(token)` 先校验签名与 `exp`，再把 base64url 的 payload **解码**成对象返回——"解码"是读，不是"解密"；
+- 正因 payload 是明文，**里面绝不能放密码、身份证等敏感信息**。
+
+### 4. 与 `auth/` 模块的对照
+
+| | `auth/`（模拟实现） | `jwt-test/`（真实 JWT） |
+|---|---|---|
+| Token 形态 | 固定字符串 `admin-token-123` | 任意载荷签出的 `eyJ...` |
+| 校验方式 | `tokenMap` 查表 | `jwtService.verify()` 验签 + 过期检查 |
+| 用户范围 | 只能选预置的两个 | 任意 `{ sub, username }` 都能签 |
+| 升级路径 | 把 `AuthService.validateToken()` 的查表换成 `jwtService.verify(token)` 即可，Guard / 装饰器链路无需改动 | — |
+
+### 5. 安全要点
+
+- `secret` 必须走环境变量、不能进 git；泄露 = 任何人都能伪造身份；
+- 必须校验 `exp`（`@nestjs/jwt` 默认校验），否则 token 永久有效；
+- 传输必须 **HTTPS**，否则 token 被截获即可重放；
+- 存 `localStorage` 要防 XSS，存 `httpOnly Cookie` 要防 CSRF，按场景取舍。
+
 ## 快速开始
 
 ### 1. 安装依赖
@@ -206,6 +264,8 @@ curl http://localhost:3001
 | `DELETE` | `/user/:id` | 无 | 删除（演示 Pipe 独立拦截非法 id） |
 
 ### JWT 演示（`/jwt-test`）
+
+> 运转原理（签发 → 携带 → 验签、payload 为何是明文）见上文「JWT 认证机制」章节。
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
