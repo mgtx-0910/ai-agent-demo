@@ -6,4 +6,5 @@ dist/
 *.log
 .DS_Store
 volumes/
+rabbitmq_data/
 output-*
