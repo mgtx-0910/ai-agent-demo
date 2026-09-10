@@ -1,0 +1,17 @@
+{
+  "name": "multi-modal-agent",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {},
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@langchain/core": "^1.2.1",
+    "@langchain/openai": "^1.5.3",
+    "ali-oss": "^6.23.0",
+    "dashscope-sdk-official": "^1.25.4",
+    "dotenv": "^17.4.2"
+  }
+}

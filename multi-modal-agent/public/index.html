@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OSS 前端直传演示</title>
+    <!-- 用 axios 发 multipart/form-data 请求；它会自动生成 boundary，无需手写 Content-Type -->
+    <script src="https://unpkg.com/axios@1.6.5/dist/axios.min.js"></script>
+</head>
+<body>
+    <!--
+      ============================================================
+       OSS 前端直传（PostObject 表单直传）演示页
+      ============================================================
+       核心思路：文件「不经过应用服务器」，浏览器直接 POST 到阿里云 OSS。
+       但 OSS 要求请求必须带签名，所以流程是：
+          1) 服务端（src/sts-gen.mjs）用主账号 AK/SK 算出 policy + signature；
+          2) 浏览器带着这份凭证，把文件以表单形式直接 POST 给 OSS；
+          3) OSS 校验签名通过后落盘，并把文件地址回显到页面上。
+       好处：文件流量不占用自己的服务器带宽，也避免大文件经过 Node 进程。
+
+       注意：下方 getOSSInfo() 里硬编码的凭证是「示例数据」，
+            其中 policy 的过期时间已过，实际使用时必须换成
+            `node src/sts-gen.mjs` 现场生成的最新值。
+    -->
+    <input id="fileInput" type="file"/>
+    
+    <script>
+        const fileInput = document.getElementById('fileInput');
+
+        /**
+         * 获取上传凭证。
+         * 真实项目里这里应发一个请求给你的应用服务器，由服务器返回
+         * { OSSAccessKeyId, policy, Signature, host }（即 sts-gen.mjs 的输出）。
+         * 现在的写法是「假接口」：直接返回写死的示例数据，便于本地演示。
+         */
+        async function getOSSInfo() {
+            await '请求应用服务器拿到临时凭证'; // 占位：await 一个字符串没有实际作用，仅示意此处将来要发请求
+            return {
+                OSSAccessKeyId: 'LTAI5t73J8Lp7uEYPXrV48D3', // 主账号 AK ID（可公开，但建议改用 STS 临时凭证）
+                Signature: 'Rf6HG/+FxsoqYigQD6lk+GqHBV0=', // 服务端算出的签名
+                policy: 'eyJleHBpcmF0aW9uIjoiMjAyNi0wNy0wNlQwMjoyMzozOS42NzhaIiwiY29uZGl0aW9ucyI6W1siY29udGVudC1sZW5ndGgtcmFuZ2UiLDAsMTA0ODU3NjAwMF1dfQ==', // base64 的 policy（含过期时间与上传限制）
+                host: 'http://agent-bucket123.oss-cn-beijing.aliyuncs.com' // 目标存储空间地址，必须与签名所属 bucket/region 一致
+            }
+        }
+
+        // 选择文件后立即触发上传
+        fileInput.onchange = async () => {
+            const file = fileInput.files[0];
+
+            const ossInfo = await getOSSInfo();
+
+
+            // 按 OSS PostObject 规范拼表单：固定字段名一个都不能少
+            const formdata = new FormData()
+
+            formdata.append('key', file.name);              // 对象名；当前直接用文件名，同名会覆盖，且会落在桶根目录
+            formdata.append('OSSAccessKeyId', ossInfo.OSSAccessKeyId)
+            formdata.append('policy', ossInfo.policy)       // 服务端下发的策略（含过期时间、大小限制）
+            formdata.append('signature', ossInfo.Signature) // 对 policy 的签名，OSS 用它验真
+            formdata.append('success_action_status', '200') // 上传成功时让 OSS 返回 200 而非默认 204，便于前端判断
+            formdata.append('file', file)                   // 文件必须放在最后
+
+            // 直接 POST 到 OSS 域名（不是自己的后端），浏览器与 OSS 之间需要配置跨域规则
+            const res = await axios.post(ossInfo.host, formdata);
+            if(res.status === 200) {
+                
+                // 上传成功后拼接出公网地址直接预览
+                // 前提：bucket 读权限为公共读，否则该 URL 会返回 403（需换成带签名的 URL）
+                const img = document.createElement('img');
+                img.src = ossInfo.host + '/' + file.name
+                document.body.append(img);
+
+                alert('上传成功');
+            }
+        }
+    </script>
+</body>
+</html>
