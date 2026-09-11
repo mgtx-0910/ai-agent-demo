@@ -4,6 +4,10 @@
 
 四个实验共用同一套业务设定（**文档解析流水线**），这样差异只来自「路由方式」本身，方便横向对比。
 
+![RabbitMQ 工作原理](RabbitMq工作原理.jpg)
+
+*RabbitMQ 工作原理示意图*
+
 ## 一句话看懂四种交换机
 
 | 交换机 | 靠什么路由 | 路由规则 | 本示例场景 |
@@ -35,6 +39,7 @@ rabbitmq-test/
 │   └── headers/
 │       ├── producer.js            # 发 (pdf,high) / (pdf,low) / (docx,high)
 │       └── consumer.js            # x-match=all|any + 若干 header 条件
+├── RabbitMq工作原理.jpg           # RabbitMQ 工作原理示意图（学习笔记配图）
 ├── docker-compose.yml             # RabbitMQ 3.13（带管理台）
 └── package.json                   # amqplib 2.x + npm run 脚本
 ```
