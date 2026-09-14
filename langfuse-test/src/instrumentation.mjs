@@ -7,7 +7,8 @@
  * OTEL 才能接管它们后续产生的 span —— 晚注册就会漏掉早期 span。
  *
  * 本文件做三件事：
- *   1. 加载 .env（拿到 LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY / LANGFUSE_BASE_URL）
+ *   1. 加载 .env（拿到 LANGFUSE_PUBLIC_KEY / LANGFUSE_SECRET_KEY / LANGFUSE_BASE_URL，
+ *      以及决定回调派发时机的 LANGCHAIN_CALLBACKS_BACKGROUND —— 见下方 import 处注释）
  *   2. 创建 LangfuseSpanProcessor：决定 span 发往哪个 Langfuse 实例、以什么节奏发
  *   3. 注册到 NodeSDK 并 start()：启动 OTEL 的全局 TracerProvider
  *
@@ -15,7 +16,27 @@
  *   - langfuseSpanProcessor：收尾时用它 forceFlush() 把缓冲区里的 span 推完
  *   - shutdownTracing()：flush + 关闭 SDK，脚本退出前必须调用
  */
-import "dotenv/config"; // 副作用导入：执行即把 .env 写进 process.env（本文件不导出任何东西）
+/**
+ * dotenv/config 是副作用导入：执行即把 .env 写进 process.env（本文件不导出任何东西）。
+ *
+ * 顺序很关键：必须早于 LangChain / Langfuse 的 import，因为 .env 里的
+ * LANGCHAIN_CALLBACKS_BACKGROUND 是 **LangChain 自己的开关**（由 @langchain/core 构造
+ * CallbackManager 时读取，本项目代码并不显式引用它，也不是 Langfuse 的变量）：
+ *   - true（LangChain 默认值）：回调走「后台异步派发」。await agent.invoke({ callbacks })
+ *     返回时只代表主流程跑完，并不保证 CallbackHandler 已把所有 span end 掉并派发出去，
+ *     它们还在后台队列里继续执行。好处是不阻塞主调用链，适合高并发常驻服务。
+ *   - false（本项目 .env 的设置）：invoke 返回前会 await 完所有回调 handler，
+ *     所以「invoke 返回」就等于「trace 数据已就绪」。
+ *
+ * 为什么本项目必须设 false：index.mjs / evaluate.mjs 都是跑完即退出的短脚本，
+ * 收尾要立刻执行下面的 shutdownTracing()（forceFlush + shutdown）。若保持默认 true，
+ * 主流程刚结束就去 flush，而后台回调还没来得及把 span 交出去，Langfuse 里就会出现
+ * trace 缺失、或 trace 只有前半截这类偶发丢数据现象。
+ *
+ * 注意：该变量只管「LangChain 回调」这条通道；OTEL 通道（下面的 LangfuseSpanProcessor）
+ * 不受它影响，那条路由收尾时的 forceFlush() 负责。两条通道独立，收尾都要做。
+ */
+import "dotenv/config";
 import { NodeSDK } from "@opentelemetry/sdk-node"; // OTEL 在 Node 侧的 SDK 装配入口
 import { LangfuseSpanProcessor } from "@langfuse/otel"; // Langfuse 的 span 导出器
 
