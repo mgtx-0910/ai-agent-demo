@@ -69,7 +69,7 @@ langfuse-test/
 │   ├── agent.mjs             # ② 被测 Agent 工厂：get_weather / calculate + Deep Agent（demo 与 eval 共用）
 │   ├── index.mjs             # ③ 单次调用 Demo：invoke + CallbackHandler → Trace
 │   └── evaluate.mjs          # ④ 离线评测：Dataset → Experiment（task + evaluators）→ Scores
-├── docker-compose.yml        # 自建 Langfuse 全家桶（web + worker + clickhouse + minio + redis + postgres）
+├── docker-compose.yml        # 可选：自建 Langfuse 服务端（6 容器官方拓扑，项目代码不直接依赖它）
 ├── .env.example              # 环境变量示例
 ├── .gitignore                # 忽略 .env / node_modules / agent-workspace
 └── package.json              # npm run demo / npm run eval
@@ -105,17 +105,39 @@ cp .env.example .env
 | --- | --- | --- |
 | `LANGFUSE_PUBLIC_KEY` | 是 | Langfuse 项目公钥 `pk-lf-xxx` |
 | `LANGFUSE_SECRET_KEY` | 是 | Langfuse 项目私钥 `sk-lf-xxx` |
-| `LANGFUSE_BASE_URL` | 是 | Cloud 用 `https://cloud.langfuse.com`；自建用 `http://localhost:3000` |
+| `LANGFUSE_BASE_URL` | 是 | Cloud 用 `https://cloud.langfuse.com`；自建用 `http://localhost:3000`。**唯一决定 trace 发往哪**，改完必须重启脚本（见「怎么确认走的是本地实例，而不是 Cloud」） |
 | `OPENAI_API_KEY` | 是 | 模型服务 Key |
 | `OPENAI_BASE_URL` | 否 | 兼容端点（Azure / 国内网关 / 本地代理），默认指向百炼兼容模式 |
 | `OPENAI_MODEL` | 否 | 模型名，默认 `qwen-plus`（代码里兜底 `gpt-4o-mini`） |
 | `LANGCHAIN_CALLBACKS_BACKGROUND` | 否 | 短生命周期脚本建议 `false`，确保 flush 前回调已写完 |
 | `LANGFUSE_DATASET_NAME` | 否 | 评测 Dataset 名称，默认 `deepagents-eval` |
 
-### 可选：本地自建 Langfuse
+### 可选：本地自建 Langfuse（`docker-compose.yml`）
+
+本目录的 `docker-compose.yml` 是 **Langfuse v3 官方 self-host 编排**，一条命令起 6 个容器：
+
+| 服务 | 端口 | 作用 | 项目代码会直接连它吗 |
+| --- | --- | --- | --- |
+| `langfuse-web` | `3000` | 控制台 UI + 上报 API 入口 | **会**：`LANGFUSE_BASE_URL` 指向它 |
+| `langfuse-worker` | `3030` | 异步消费队列，把事件写入 ClickHouse | 不会 |
+| `postgres` | `5432` | **元数据**：组织 / 项目 / API Key / Dataset 定义 / Score 定义 | 不会 |
+| `clickhouse` | `8123` / `9000` | **观测数据**：trace / observation / score（列存，量大） | 不会 |
+| `redis` | `6379` | BullMQ 任务队列 + 缓存（web ↔ worker 的任务分发） | 不会 |
+| `minio` | `9090` / `9091` | S3 兼容对象存储：事件、媒体文件、批量导出 | 不会 |
+
+**关键澄清：6 个容器里只有 `langfuse-web` 是给项目用的，其余 5 个都是 Langfuse 自己的后端依赖。**
+
+- 所以 `src/` 里搜不到 `redis` / `postgres` / `clickhouse` 是正常的 —— 项目只通过 HTTP 把 trace 发给 `langfuse-web:3000`，不直连任何数据库。
+- v3 起 Langfuse 不再支持 SQLite 那种轻量单机模式：文件里的 `depends_on: ... condition: service_healthy` 已写明，postgres / clickhouse / redis / minio 全部健康后 web 与 worker 才会启动，**缺一不可**。
+- 端口绑定也做了收敛：只有 `3000`（web）和 `9090`（minio）对外，其余全部绑 `127.0.0.1`，只能本机访问。
+- 换句话说：用 **Langfuse Cloud** 时，这个文件完全不需要启动（Postgres/ClickHouse/Redis/MinIO 由云端托管）。
+
+启动与配置：
 
 ```bash
-docker compose up -d     # 首次要拉 6 个镜像，耗时较长
+docker compose up -d                   # 首次要拉 6 个镜像，耗时较长
+docker compose ps                      # 等各服务变成 healthy
+docker compose logs -f langfuse-web    # 需要时看服务端日志
 ```
 
 启动后打开 `http://localhost:3000` → 注册账号 → 新建组织 / 项目 → 复制 `pk-lf-xxx` / `sk-lf-xxx` 填进 `.env`，
@@ -124,16 +146,41 @@ docker compose up -d     # 首次要拉 6 个镜像，耗时较长
 > 也可以在 `.env` 里预设 `LANGFUSE_INIT_*`（组织 / 项目 / 用户 / Key），容器启动时自动建好项目，省掉手动注册。
 > 注意 `docker compose` 与 Node 的 dotenv 读的是同一个 `.env` 文件，两边变量互不冲突，可以放在一起。
 
-自建时用到的端口（冲突了要先释放）：
+#### 怎么确认走的是本地实例，而不是 Cloud
 
-| 服务 | 端口 | 说明 |
+`LANGFUSE_BASE_URL` 是**唯一**决定 trace 发往哪的开关：代码里显式把它传给 `LangfuseSpanProcessor`，除此之外没有任何地方决定上报地址。按下面几层依次确认：
+
+1. **看启动日志（最快）**：脚本一跑就会先打印一行
+
+   ```
+   [langfuse] 上报目标: http://localhost:3000 → 本地自建实例
+   ```
+
+   打印成「远端 / Langfuse Cloud」就说明当前发的是云端。这行来自 `src/instrumentation.mjs`，取的就是 `.env` 里的值。
+
+2. **改完 `.env` 必须重启脚本**：`dotenv` 只在进程启动时读一次 `.env`，改文件对已在运行的进程无效，要 Ctrl+C 后重新 `npm run demo` / `npm run eval`。
+
+3. **看数据落在哪个 UI**：
+   - 走本地：`http://localhost:3000` 的 Traces 里能搜到刚打印的 trace id，而 `https://cloud.langfuse.com` 的项目里搜不到；
+   - 走云端：正好相反；
+   - 两边都能搜到 → 多半是你先后改了 baseUrl 各跑过一次，别拿上一次的 trace 下结论（trace id 唯一，能对上才是这一次）。
+
+4. **看服务端是否真的收到了**（自建时的确证）：`docker compose logs -f langfuse-web` 能看到 ingestion 相关请求。本地实例没起来时，SDK 导出会直接报连接错误 —— **不会**自动回退到云端，数据只会丢，不会串到云上。
+
+5. **key 与实例是绑定的**：Cloud 的 key 用在自建实例（或反之）会直接 401 / 403，这是「连错实例」最典型的信号。
+
+6. **网络层再确认一次**：跑脚本时看 node 进程的出站连接（任务管理器 → 资源监视器，或 `netstat -ano | findstr <node 的 PID>`）：连 `127.0.0.1:3000` 就是本地，连公网 `443` 就是 Cloud。
+
+速查矩阵：
+
+| `.env` 的 `LANGFUSE_BASE_URL` | 启动日志 | 结论 |
 | --- | --- | --- |
-| `langfuse-web` | `3000` | 控制台入口，`LANGFUSE_BASE_URL` 指向它 |
-| `langfuse-worker` | `3030` | 后台任务（仅本机可访问） |
-| `clickhouse` | `8123` / `9000` | 存 trace 明细（仅本机可访问） |
-| `minio` | `9090` / `9091` | 对象存储（事件与媒体文件） |
-| `redis` | `6379` | 队列与缓存（仅本机可访问） |
-| `postgres` | `5432` | 存项目 / 用户 / 数据集等元数据（仅本机可访问） |
+| `http://localhost:3000` | `→ 本地自建实例` | 走本地（前提：容器确实在跑） |
+| `https://cloud.langfuse.com` | `→ 远端 / Langfuse Cloud` | 走云端 |
+| 未设置 | `(未设置，SDK 默认)` | SDK 兜底默认值，实际仍是云端 |
+
+> 端口别看错：只有 `3000`（web）和 `9090`（minio）对外，其余（`3030` / `8123` / `9000` / `6379` / `5432` / `9091`）都绑在 `127.0.0.1`。
+> 端口被占用时 `docker compose up` 会起不来，先释放端口，或用 `docker compose logs <service>` 定位是哪个服务。
 
 ## 运行
 
@@ -187,6 +234,7 @@ const QUERY =
 跑完后控制台形如（内容是确定的，耗时取决于模型服务）：
 
 ```
+[langfuse] 上报目标: https://cloud.langfuse.com → 远端 / Langfuse Cloud   ← instrumentation.mjs 启动时打印，最先输出
 running: 查一下 Shanghai 和 Tokyo 的天气，再用计算器把两地气温数字相加（31+28），最后总结。
 
 reply: 上海 31°C 闷热多云，东京 28°C 晴，两地气温相加为 59。
@@ -322,6 +370,10 @@ trace id: 8f3c1d2e...
 8. **多步循环要有安全阀**
    `recursionLimit: 30`（LangGraph 默认值偏小）。工具循环轮数超限会抛 `GraphRecursionError`，多步任务建议显式放大。
 
+9. **实例归属只由 `LANGFUSE_BASE_URL` 决定**
+   `instrumentation.mjs` 把它显式传给 `LangfuseSpanProcessor`，并在启动时打印一行确认（`[langfuse] 上报目标: ...`）。
+   切换实例 = 改这个变量 + 重启进程 + 换成对应实例的 key（Cloud 与自建的 key 不通用，错配直接 401 / 403）。
+
 ## 扩展示例
 
 ### 加一个工具
@@ -356,6 +408,9 @@ trace id: 8f3c1d2e...
 | 报 401 / 403 | Key 与实例不匹配：Cloud 的 key 不能用于自建实例，反之亦然 |
 | `docker compose up` 起不来 | 端口被占（见上表 3000/3030/8123/9000/9090/9091/6379/5432）；`docker compose logs <service>` 看具体服务 |
 | 评测一条用例失败会不会中断整轮 | 不会，`runExperiment` 逐条隔离；但失败用例不会产生分数，看 Run 明细即可定位 |
+| 分不清 trace 发到了本地还是云端 | 看启动日志的 `[langfuse] 上报目标:` 一行；对照「怎么确认走的是本地实例，而不是 Cloud」里的速查矩阵 |
+| 改了 `.env` 的 `LANGFUSE_BASE_URL` 但没任何变化 | `dotenv` 只在进程启动时读一次：Ctrl+C 重启 `npm run demo` / `npm run eval` |
+| 想把 trace 从云端切到自建（或反向） | 同时改 `LANGFUSE_BASE_URL` + `LANGFUSE_PUBLIC_KEY` / `LANGFUSE_SECRET_KEY`（两边 key 不通用），再重启脚本 |
 
 ## 依赖
 
