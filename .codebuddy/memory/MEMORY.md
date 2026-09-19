@@ -15,3 +15,9 @@
 - 关键变量、配置、返回值旁边加行尾注释解释其业务含义
 - 数据流向复杂的链要在定义前加 `// 数据流向：A → B → C → 输出` 说明
 - 回调/配置/选项对象中每个字段加注释说明用途
+
+### Apipost 接口同步
+- 使用 `apipost-offline` MCP Server（Apipost 单机版），默认同步目标为「默认项目」，`project_id = 2217ab9975f003`
+- 同步入口：`apipost_sync_openapi`，传 OpenAPI 3.0.3 JSON；接口按顶层 `tags` 自动创建同名目录
+- 关键坑：`openapi` 参数必须是**不含任何转义字符**的 JSON（description 里不要写 `\n`、不要转义双引号），否则报 `arguments must be a valid JSON string`；建议直接传缩进格式的 JSON 对象
+- 给 query 参数带 `example` 会把示例值拼进接口 URL，属正常行为

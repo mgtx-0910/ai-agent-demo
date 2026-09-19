@@ -6,14 +6,8 @@ import {
   DocumentContent,
   DocumentContentSchema,
 } from './schemas/document-content.schema';
+import { FileParserService } from './parser/file-parser.service';
 
-/**
- * 文档模块
- *
- * 注意这里只注册了 Mongo 侧的 DocumentContent：
- *   - PG 侧走的是 EntityManager（app.module 已建好连接），不需要再 forFeature
- *   - Mongo 侧必须 forFeature 注册模型，@InjectModel(DocumentContent.name) 才能注入
- */
 @Module({
   imports: [
     MongooseModule.forFeature([
@@ -21,8 +15,7 @@ import {
     ]),
   ],
   controllers: [DocumentController],
-  providers: [DocumentService],
-  // 导出给其他模块复用（如后续的检索 / 权限模块）
-  exports: [DocumentService],
+  providers: [DocumentService, FileParserService],
+  exports: [DocumentService, FileParserService],
 })
 export class DocumentModule {}
