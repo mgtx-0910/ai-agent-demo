@@ -1,7 +1,30 @@
 {
     "version": "0.2.0",
     "configurations": [
+
         {
+            "type": "node",
+            "request": "launch",
+            "name": "Debug knowledge-hub-backend",
+            "runtimeExecutable": "${workspaceFolder}/node-npm.cmd",
+            "runtimeArgs": [
+                "run",
+                "start:debug"
+            ],
+            "cwd": "${workspaceFolder}/knowledge-hub-backend",
+            "console": "integratedTerminal",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "port": 9229,
+            "sourceMaps": true,
+            "resolveSourceMapLocations": [
+                "${workspaceFolder}/**",
+                "!**/node_modules/**"
+            ],
+            "autoAttachChildProcesses": true
+        },
+         {
             "type": "node",
             "request": "launch",
             "name": "Debug agui-backend",
