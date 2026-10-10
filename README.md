@@ -40,6 +40,9 @@
 ├── pgsql-test/                  # PostgreSQL + pgvector
 ├── redis-test/                  # Redis 记忆
 ├── mem0-test/                   # Mem0 记忆平台
+│
+├── 📦 第三阶段 · 综合实战（2026-09-16 起）
+├── knowledge-hub-backend/       # 🏢 企业知识库后端（文档 → 审核 → 检索 → RAG 问答）
 ```
 
 ## 第一阶段项目介绍（2026-06-27 起 · 入门 Agent）
@@ -268,6 +271,26 @@ Mem0 是"记忆即平台"，加记忆只需调 API，抽取 / 去重 / 更新由
 
 ---
 
+## 第三阶段项目介绍（2026-09-16 起 · 综合实战）
+
+第三阶段不引入新框架，而是把前两个阶段的能力组装成一个**能交付的业务系统**——企业知识库后端。
+
+### 17. knowledge-hub-backend — 企业知识库后端
+
+把「文档 → 审核 → 检索 → 问答」串成一条完整链路，是两阶段学习成果的集大成者。完整说明见 [knowledge-hub-backend/README.md](knowledge-hub-backend/README.md)。
+
+- **三套索引，一次发布** — 文档发布后经 RabbitMQ 三路队列异步建立 ES 全文索引 / ES 向量索引 / Neo4j 知识图谱
+- **混合检索** — ES 关键词（IK 分词）+ 向量 kNN 双路召回 → RRF 融合 → qwen3-rerank 精排 → 阈值过滤，任一路失败都能降级
+- **Agentic RAG** — `createAgent` + 四个工具（知识库检索 / 查询改写 / 图谱检索 / 联网搜索）+ 摘要与调用次数中间件，SSE 流式返回思考过程与引用
+- **三层记忆** — Postgres 会话历史 + Redis 短期热窗口（miss 回填）+ Mem0 长期记忆，并坚持"记忆不是知识库"
+- **发布审核** — 可开关的审核流程 + 状态机（草稿 / 待审核 / 已发布 / 已归档），流转规则抽成纯函数
+- **RBAC 权限** — 用户 / 角色 / 权限六表，角色权限与直授权限取并集，三个全局守卫（登录 → 角色 → 权限码）串行把关
+- **数据可见性下推** — 同一套规则（管理员/审核员 ∪ 作者 ∪ 已发布且公开或同团队）同时下推到 Postgres 查询、ES filter、Neo4j Cypher
+- **多存储分工** — Postgres 存元数据、Mongo 存正文、ES 做检索、Neo4j 做图谱、Redis 做凭证与热记忆、RustFS 存对象
+- **工程化基建** — Docker Compose 一键拉起 8 类服务（含自建 IK 分词 ES 镜像）、雪花 ID 主键、全量 curl 手工验证脚本
+
+---
+
 ## 第一阶段学习时间线
 
 ```
@@ -297,9 +320,14 @@ Tool & MCP         RAG           Milvus      Memory      OutputParser    PromptT
   deepagents-test    deep-research-assistant   pgsql-test/redis-test     mem0-test
        09-02                  09-03                  09-04                 09-07
        └─ 中间件机制 → 综合实战 → 存储与分层记忆
+
+📦 综合实战（09-16 起）
+  knowledge-hub-backend
+       09-16
+       └─ 把两阶段所学组装成可交付的系统：文档 → 审核 → 三套索引 → 混合检索 → Agentic RAG + RBAC
 ```
 
-第一阶段学的是"让大模型变成工业流水线"；第二阶段把流水线装进真实系统——能上图编排、能生产级检索与评测、有分层记忆、会语音、能定时干活。
+第一阶段学的是"让大模型变成工业流水线"；第二阶段把流水线装进真实系统——能上图编排、能生产级检索与评测、有分层记忆、会语音、能定时干活；第三阶段把两者拼成一个可交付的业务系统——文档进得去、知识找得到、权限管得住。
 
 ---
 
@@ -310,7 +338,9 @@ Tool & MCP         RAG           Milvus      Memory      OutputParser    PromptT
 - **后端框架**: NestJS 11（DI / SSE / WebSocket / 定时任务 / TypeORM）
 - **语音**: 腾讯云 TTS / ASR（TC3 WebSocket 签名）
 - **消息协议**: Vercel AI SDK（`ai` / `@ai-sdk/react` / `@ai-sdk/langchain`）
-- **检索与存储**: Milvus、Elasticsearch（IK 分词）、Neo4j、PostgreSQL（pgvector）、Redis、MySQL
+- **检索与存储**: Milvus、Elasticsearch（IK 分词）、Neo4j、PostgreSQL（pgvector）、MySQL、MongoDB、Redis
+- **消息与对象存储**: RabbitMQ、RustFS（S3 兼容）
+- **鉴权**: NestJS JWT / Passport / bcryptjs
 - **记忆**: Mem0（`mem0ai`）
 - **可观测 / 评测**: LangSmith、OpenEvals
 - **Schema**: Zod
