@@ -43,6 +43,7 @@
 │
 ├── 📦 第三阶段 · 综合实战（2026-09-16 起）
 ├── knowledge-hub-backend/       # 🏢 企业知识库后端（文档 → 审核 → 检索 → RAG 问答）
+├── knowledge-hub-frontend/      # 🖥️ 企业知识库前端（React + Ant Design 管理台）
 ```
 
 ## 第一阶段项目介绍（2026-06-27 起 · 入门 Agent）
@@ -273,7 +274,7 @@ Mem0 是"记忆即平台"，加记忆只需调 API，抽取 / 去重 / 更新由
 
 ## 第三阶段项目介绍（2026-09-16 起 · 综合实战）
 
-第三阶段不引入新框架，而是把前两个阶段的能力组装成一个**能交付的业务系统**——企业知识库后端。
+第三阶段不引入新框架，而是把前两个阶段的能力组装成一个**能交付的业务系统**——企业知识库（后端 + 前端）。
 
 ### 17. knowledge-hub-backend — 企业知识库后端
 
@@ -288,6 +289,16 @@ Mem0 是"记忆即平台"，加记忆只需调 API，抽取 / 去重 / 更新由
 - **数据可见性下推** — 同一套规则（管理员/审核员 ∪ 作者 ∪ 已发布且公开或同团队）同时下推到 Postgres 查询、ES filter、Neo4j Cypher
 - **多存储分工** — Postgres 存元数据、Mongo 存正文、ES 做检索、Neo4j 做图谱、Redis 做凭证与热记忆、RustFS 存对象
 - **工程化基建** — Docker Compose 一键拉起 8 类服务（含自建 IK 分词 ES 镜像）、雪花 ID 主键、全量 curl 手工验证脚本
+
+### 18. knowledge-hub-frontend — 企业知识库前端
+
+后端能力的 React 管理台，把文档、检索、问答、图谱、RBAC 五块界面接到真实接口上。完整说明见 [knowledge-hub-frontend/README.md](knowledge-hub-frontend/README.md)。
+
+- **直连流式问答** — 用 AI SDK v7 的 `useChat` + `DefaultChatTransport` 接入 `/ai/chat/stream`，边生成边渲染，切页面不中断同一条流
+- **推理轨迹可见** — 后端的意图分类、召回命中、图谱子图、切题评估逐条渲染成卡片；引用只保留正文里真正标了 `[n]` 的
+- **权限驱动的界面** — `can()` / `isAdmin()` / `isReviewer()` 同时决定顶栏、侧边栏与路由守卫（真正的拦截仍在后端）
+- **401 自动续期** — 统一请求层收到 401 后静默刷新 token 并重放原请求，并发请求只触发一次刷新
+- **图谱可视化** — ECharts 力导向图，图谱页与问答内的检索轨迹共用同一组件
 
 ---
 
@@ -322,9 +333,9 @@ Tool & MCP         RAG           Milvus      Memory      OutputParser    PromptT
        └─ 中间件机制 → 综合实战 → 存储与分层记忆
 
 📦 综合实战（09-16 起）
-  knowledge-hub-backend
-       09-16
-       └─ 把两阶段所学组装成可交付的系统：文档 → 审核 → 三套索引 → 混合检索 → Agentic RAG + RBAC
+  knowledge-hub-backend        knowledge-hub-frontend
+        09-16                        09-20
+        └─ 把两阶段所学组装成可交付的系统：文档 → 审核 → 三套索引 → 混合检索 → Agentic RAG + RBAC
 ```
 
 第一阶段学的是"让大模型变成工业流水线"；第二阶段把流水线装进真实系统——能上图编排、能生产级检索与评测、有分层记忆、会语音、能定时干活；第三阶段把两者拼成一个可交付的业务系统——文档进得去、知识找得到、权限管得住。
