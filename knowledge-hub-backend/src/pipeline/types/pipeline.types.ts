@@ -24,10 +24,24 @@ export interface DocumentChunk {
   categoryId?: string | null;
   authorId?: string | null;
   teamId?: string | null;
+  isPublic?: boolean;
   docStatus?: number | null;
   publishTime?: string | null;
   /** 向量；分块阶段为空，EmbeddingService 填充后写入 ES dense_vector */
   embedding?: number[];
+}
+
+/** kh_chunk 检索命中（关键词 / 向量 / RRF 融合后共用） */
+export interface ChunkHit {
+  chunkId: string;
+  documentId: string;
+  documentTitle: string;
+  content: string;
+  heading: string | null;
+  /** 当前阶段得分：原始检索分、RRF 分或 rerank 分 */
+  score: number;
+  bm25Score?: number;
+  vectorScore?: number;
 }
 
 /** 图谱实体（如「张三」「入职流程」「知识库」） */
