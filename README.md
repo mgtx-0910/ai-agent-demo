@@ -1,10 +1,12 @@
 # AI Agent 全栈开发学习
 
-基于 [LangChain](https://www.langchain.com/) / LangGraph / DeepAgents 的 AI Agent 全栈开发学习项目：从基础组件到 LCEL 工业流水线，再到工程化落地与生产级 Agent 应用。
+基于 [LangChain](https://www.langchain.com/) / LangGraph / DeepAgents 的 AI Agent 全栈开发学习项目：从基础组件到 LCEL 工业流水线，再到工程化落地与生产级 Agent 应用，最终组装成一个可交付的企业知识库系统（后端 + 前端）。
 
 > [📖 第一阶段学习总结](docs/LangChain-AI-Agent-第一阶段学习总结.md) — LangChain 组件 → LCEL 工业流水线（2026-06-27 ~ 07-22）
 >
 > [📖 第二阶段学习总结](docs/LangChain-AI-Agent-第二阶段学习总结.md) — 工程化落地 → 图编排 → 生产级 Agent（2026-07-29 ~ 09-08）
+>
+> [📖 第三阶段学习总结](docs/LangChain-AI-Agent-第三阶段学习总结.md) — 综合实战：企业知识库系统（后端 + 前端）（2026-09-16 ~ 10-10）
 
 ---
 
@@ -13,7 +15,8 @@
 ```js
 ├── docs/                        # 📚 学习文档
 │   ├── LangChain-AI-Agent-第一阶段学习总结.md
-│   └── LangChain-AI-Agent-第二阶段学习总结.md
+│   ├── LangChain-AI-Agent-第二阶段学习总结.md
+│   └── LangChain-AI-Agent-第三阶段学习总结.md
 ├── 📦 第一阶段 · 入门 Agent（2026-06-27 起）
 ├── tool-test/                   # 🔧 Tool & MCP — 工具定义与 Agent 循环
 ├── rag-test/                    # 🔍 RAG — 检索增强生成  
@@ -331,11 +334,15 @@ Tool & MCP         RAG           Milvus      Memory      OutputParser    PromptT
   deepagents-test    deep-research-assistant   pgsql-test/redis-test     mem0-test
        09-02                  09-03                  09-04                 09-07
        └─ 中间件机制 → 综合实战 → 存储与分层记忆
+```
 
-📦 综合实战（09-16 起）
+### 第三阶段学习时间线
+
+```text
+📦 综合实战（09-16 → 10-10）
   knowledge-hub-backend        knowledge-hub-frontend
-        09-16                        09-20
-        └─ 把两阶段所学组装成可交付的系统：文档 → 审核 → 三套索引 → 混合检索 → Agentic RAG + RBAC
+        09-16                        10-10
+        └─ 把两阶段所学组装成可交付的系统（后端 + React 管理台）：文档 → 审核 → 三套索引 → 混合检索 → Agentic RAG + RBAC
 ```
 
 第一阶段学的是"让大模型变成工业流水线"；第二阶段把流水线装进真实系统——能上图编排、能生产级检索与评测、有分层记忆、会语音、能定时干活；第三阶段把两者拼成一个可交付的业务系统——文档进得去、知识找得到、权限管得住。
@@ -347,6 +354,7 @@ Tool & MCP         RAG           Milvus      Memory      OutputParser    PromptT
 - **Runtime**: Node.js 24+
 - **AI 框架**: LangChain.js (`@langchain/core` / `@langchain/openai` / `@langchain/community`)、LangGraph (`@langchain/langgraph`)、DeepAgents (`deepagents`)
 - **后端框架**: NestJS 11（DI / SSE / WebSocket / 定时任务 / TypeORM）
+- **前端框架**: React 19 + Vite 8 + TypeScript（Ant Design 6 / React Router 7 / ECharts 6 / react-markdown）
 - **语音**: 腾讯云 TTS / ASR（TC3 WebSocket 签名）
 - **消息协议**: Vercel AI SDK（`ai` / `@ai-sdk/react` / `@ai-sdk/langchain`）
 - **检索与存储**: Milvus、Elasticsearch（IK 分词）、Neo4j、PostgreSQL（pgvector）、MySQL、MongoDB、Redis
