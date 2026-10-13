@@ -189,16 +189,16 @@ createAgent({ model, tools, systemPrompt, middleware })
              └── 标了 @Public() 的接口跳过登录校验
 ```
 
-权限是「角色权限 ∪ 直授权限」：用户最终权限 = `kh_user_permission` ∪（`kh_user_role` → `kh_role_permission`），ADMIN 额外并入 `ADMIN_OPERATION_PERMISSIONS`。角色只有三个（`ROLE_ADMIN` / `ROLE_REVIEWER` / `ROLE_USER`），权限码分三级（菜单 / 按钮 / 接口），如 `document:list`、`document:create`、`system:permission:edit`。
+权限是「角色权限 OR 直授权限」：用户最终权限 = `kh_user_permission` OR（`kh_user_role` → `kh_role_permission`），ADMIN 额外并入 `ADMIN_OPERATION_PERMISSIONS`。角色只有三个（`ROLE_ADMIN` / `ROLE_REVIEWER` / `ROLE_USER`），权限码分三级（菜单 / 按钮 / 接口），如 `document:list`、`document:create`、`system:permission:edit`。
 
 真正有含金量的是**数据可见性**：规则只写一次（`src/document/document-access.ts`），再下推到三个存储各自的查询语句。
 
 ```
 可读 = 管理员/审核员（unrestricted）
-     ∪ 文档作者是自己
-     ∪ （已发布 ∧（文档公开 ∨ 文档 team_id ∈ 我的团队集合））
+     OR 文档作者是自己
+     OR （已发布 AND（文档公开 OR 文档 team_id IN 我的团队集合））
 
-可写 = 管理员 ∪ 文档作者
+可写 = 管理员 OR 文档作者
 ```
 
 | 存储 | 下推方式 |
