@@ -5,6 +5,10 @@
 它解决的问题是：公司内部的制度、SOP、规范散落在 PDF / Word / Excel / PPT 里，人找不到、AI 也答不准。本项目把文件收进来、解析成 Markdown、按权限发布，再同时建立**全文索引 / 向量索引 / 知识图谱**三套检索能力，最后用 Agentic RAG 对外提供「问一句、给答案、附出处」的问答接口。
 
 > 这是 `ai-agent-demo` 仓库中把前面学习成果（NestJS 工程化、RAG、ES 混合检索、Neo4j 图谱、Redis/Mem0 记忆、权限体系）组装到一起的综合项目。
+>
+> 🧭 **新手导学（HTML）**：[docs/html/knowledge-hub-guide.html](../docs/html/knowledge-hub-guide.html) — 前后端双项目 7 阶段上手路线，建议先看它再读本 README。
+>
+> ❓ **面试题收集（HTML）**：[docs/html/interview-questions.html](../docs/html/interview-questions.html) — 围绕本项目 RAG 检索与评测的问答，含参考答案与追问。
 
 ## 目录
 

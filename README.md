@@ -7,6 +7,10 @@
 > [📖 第二阶段学习总结](docs/LangChain-AI-Agent-第二阶段学习总结.md) — 工程化落地 → 图编排 → 生产级 Agent（2026-07-29 ~ 09-08）
 >
 > [📖 第三阶段学习总结](docs/LangChain-AI-Agent-第三阶段学习总结.md) — 综合实战：企业知识库系统（后端 + 前端）（2026-09-16 ~ 10-10）
+>
+> [🧭 Knowledge Hub 导学（HTML）](docs/html/knowledge-hub-guide.html) — 前后端双项目从零上手：两个项目是什么 · 架构与存储分工 · 技术栈 · 7 阶段改代码路线
+>
+> [❓ 面试题收集（HTML）](docs/html/interview-questions.html) — RAG / 检索 / 评测相关问答，支持搜索与按分类、难度、掌握状态筛选
 
 ---
 
@@ -16,7 +20,11 @@
 ├── docs/                        # 📚 学习文档
 │   ├── LangChain-AI-Agent-第一阶段学习总结.md
 │   ├── LangChain-AI-Agent-第二阶段学习总结.md
-│   └── LangChain-AI-Agent-第三阶段学习总结.md
+│   ├── LangChain-AI-Agent-第三阶段学习总结.md
+│   ├── html/                    # 🌐 HTML 单页文档（浏览器直接打开）
+│   │   ├── knowledge-hub-guide.html      # 🧭 前后端双项目导学（7 阶段上手路线）
+│   │   └── interview-questions.html      # ❓ 面试题收集（搜索 / 分类 / 难度筛选）
+│   └── js/                      # 上述页面的数据与应用脚本
 ├── 📦 第一阶段 · 入门 Agent（2026-06-27 起）
 ├── tool-test/                   # 🔧 Tool & MCP — 工具定义与 Agent 循环
 ├── rag-test/                    # 🔍 RAG — 检索增强生成  
@@ -278,6 +286,8 @@ Mem0 是"记忆即平台"，加记忆只需调 API，抽取 / 去重 / 更新由
 ## 第三阶段项目介绍（2026-09-16 起 · 综合实战）
 
 第三阶段不引入新框架，而是把前两个阶段的能力组装成一个**能交付的业务系统**——企业知识库（后端 + 前端）。
+
+> 🧭 第一次进这两个目录建议先看 [Knowledge Hub 导学（HTML）](docs/html/knowledge-hub-guide.html)：两个项目是什么、架构与存储分工、技术栈地图，再按 7 阶段路线逐块读代码。相关问题收集在 [面试题收集（HTML）](docs/html/interview-questions.html)。
 
 ### 17. knowledge-hub-backend — 企业知识库后端
 

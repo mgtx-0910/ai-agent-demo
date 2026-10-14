@@ -4,6 +4,8 @@
 
 > 前端只负责体验层。**真正的权限与可见性拦截在后端**（见 backend README「认证与权限」），前端隐藏菜单/路由只是减少误操作。
 
+> 🧭 **新手导学（HTML）**：[docs/html/knowledge-hub-guide.html](../docs/html/knowledge-hub-guide.html) — 覆盖前后端双项目的 7 阶段上手路线，讲解前端与后端如何分工、如何对接。
+
 ## 技术栈
 
 | 领域 | 选型 |
