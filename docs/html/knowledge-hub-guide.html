@@ -156,6 +156,12 @@ tbody tr:hover{background:var(--panel-2)}
 .steps>li::before{content:counter(s);position:absolute;left:-15px;top:-2px;width:28px;height:28px;border-radius:9px;
   background:var(--panel);border:2px solid var(--primary);color:var(--primary);font-size:12.5px;font-weight:700;display:grid;place-items:center}
 .steps h4{margin:0 0 5px;font-size:14.5px}
+.figs{display:grid;gap:12px;margin:14px 0}
+.figs.g2{grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+.figs h4{margin:0;font-size:13.5px;color:var(--muted);font-weight:600}
+.fig{margin:0;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:10px;box-shadow:var(--shadow)}
+.fig img{display:block;width:100%;height:auto;border-radius:8px;background:var(--panel-2)}
+.fig figcaption{margin-top:8px;font-size:12.4px;color:var(--muted);text-align:center}
 footer{max-width:1400px;margin:0 auto;padding:24px 20px 60px;color:var(--muted);font-size:12.6px;border-top:1px solid var(--border)}
 @media (max-width:960px){
   .layout{grid-template-columns:1fr;gap:16px}
@@ -323,6 +329,26 @@ npm run dev               # http://localhost:5173
       </table>
     </div>
     <div class="note"><b>首次启动会慢一点：</b>ES 由 <code>elasticsearch/Dockerfile</code> 本地构建，把 IK 分词器烤进镜像（官方镜像不含该插件）。</div>
+
+    <h3>配图</h3>
+    <div class="figs g2">
+      <figure class="fig">
+        <img src="../agent-imgs/knowledge-hub-img/搭建统一企业知识库，让知识找得到、用得上、解决问题更高效.png" alt="搭建统一企业知识库，让知识找得到、用得上、解决问题更高效" loading="lazy">
+        <figcaption>企业知识库的整体目标：知识找得到、用得上</figcaption>
+      </figure>
+      <figure class="fig">
+        <img src="../agent-imgs/knowledge-hub-img/知识库文档存储结构图.png" alt="知识库文档存储结构图" loading="lazy">
+        <figcaption>知识库文档存储结构图</figcaption>
+      </figure>
+      <figure class="fig">
+        <img src="../agent-imgs/knowledge-hub-img/为啥要分开存储，pg存元数据，mongo存正文.png" alt="为啥要分开存储，pg 存元数据，mongo 存正文" loading="lazy">
+        <figcaption>为什么 PG 存元数据、Mongo 存正文</figcaption>
+      </figure>
+      <figure class="fig">
+        <img src="../agent-imgs/knowledge-hub-img/MongoDB文档存储上限是16MB，超了怎么办.jpg" alt="MongoDB 文档存储上限是 16MB，超了怎么办" loading="lazy">
+        <figcaption>MongoDB 单文档 16MB 上限与超限处理</figcaption>
+      </figure>
+    </div>
   </section>
 
   <!-- ══════════ 技术栈 ══════════ -->
@@ -443,6 +469,41 @@ npm run dev               # http://localhost:5173
         <li>把环境变量里的 token 改坏几位，调 <code>/auth/me</code> 观察 401，再在页面上刷新，观察前端自动 refresh 重放。</li>
       </ol>
       <div class="note"><b>练习：</b>给某个只要求登录的接口改成 <code>@RequirePermission('document:delete')</code>，用 user 账号验证被拦截，用 admin 验证放行。</div>
+      <h3>配图</h3>
+      <div class="figs g2">
+        <figure class="fig">
+          <img src="../agent-imgs/knowledge-hub-img/RBAC权限模型.png" alt="RBAC 权限模型" loading="lazy">
+          <figcaption>RBAC 基础模型：用户 → 角色 → 权限</figcaption>
+        </figure>
+        <figure class="fig">
+          <img src="../agent-imgs/knowledge-hub-img/RBAC权限模型(扩展支持用户直赋权限).png" alt="RBAC 权限模型（扩展支持用户直赋权限）" loading="lazy">
+          <figcaption>本项目扩展：角色权限 OR 用户直授权限</figcaption>
+        </figure>
+        <figure class="fig">
+          <img src="../agent-imgs/knowledge-hub-img/RBAC%20(Role-Based%20Access%20Control).png" alt="RBAC（Role-Based Access Control）" loading="lazy">
+          <figcaption>RBAC（Role-Based Access Control）</figcaption>
+        </figure>
+        <figure class="fig">
+          <img src="../agent-imgs/knowledge-hub-img/三级权限控制模型.png" alt="三级权限控制模型" loading="lazy">
+          <figcaption>三级权限码：菜单 / 按钮 / 接口</figcaption>
+        </figure>
+        <figure class="fig">
+          <img src="../agent-imgs/knowledge-hub-img/AccessToken与RefreshToken流程图.png" alt="AccessToken 与 RefreshToken 流程图" loading="lazy">
+          <figcaption>双 token：access 2h + refresh 7d</figcaption>
+        </figure>
+        <figure class="fig">
+          <img src="../agent-imgs/knowledge-hub-img/用户注册与邮箱激活流程图解.png" alt="用户注册与邮箱激活流程图解" loading="lazy">
+          <figcaption>注册与邮箱激活流程</figcaption>
+        </figure>
+        <figure class="fig">
+          <img src="../agent-imgs/knowledge-hub-img/邮箱注册与激活流程图解(示例).png" alt="邮箱注册与激活流程图解（示例）" loading="lazy">
+          <figcaption>邮箱激活链路示例（token 存 Redis + TTL）</figcaption>
+        </figure>
+        <figure class="fig">
+          <img src="../agent-imgs/knowledge-hub-img/修改密码流程图解.png" alt="修改密码流程图解" loading="lazy">
+          <figcaption>修改密码：验证码校验 → bcrypt 重哈希</figcaption>
+        </figure>
+      </div>
     </div>
   </article>
 
@@ -504,6 +565,21 @@ DOCUMENT_REQUIRE_APPROVAL  是否走审核（默认 true）</code></pre>
         <li>建议用 Apipost 的<strong>执行流</strong>把上面这串串成一个可一键重跑的链路。</li>
       </ol>
       <div class="note"><b>练习：</b>为 <code>document-status.ts</code> 写第一个 Jest 单测（项目目前 0 测试，这是最值得补的一处）。</div>
+      <h3>配图</h3>
+      <div class="figs g2">
+        <figure class="fig">
+          <img src="../agent-imgs/knowledge-hub-img/文档状态流转图(需审批流程).png" alt="文档状态流转图（需审批流程）" loading="lazy">
+          <figcaption>文档状态流转图（含审批流程）</figcaption>
+        </figure>
+        <figure class="fig">
+          <img src="../agent-imgs/knowledge-hub-img/文档发布.jpg" alt="文档发布" loading="lazy">
+          <figcaption>发布动作：写库 + 投递索引消息</figcaption>
+        </figure>
+        <figure class="fig">
+          <img src="../agent-imgs/knowledge-hub-img/文档可见性控制.png" alt="文档可见性控制" loading="lazy">
+          <figcaption>可见性规则与三存储下推</figcaption>
+        </figure>
+      </div>
     </div>
   </article>
 
@@ -562,6 +638,13 @@ DOCUMENT_REQUIRE_APPROVAL  是否走审核（默认 true）</code></pre>
         <li>命中共 0 条时计划<strong>只告警不失败</strong>，正是为了让你分清「索引还没追上」和「接口本身报错」这两种情况。</li>
         <li>跑完顺手打开 RabbitMQ 控制台看三个队列的消费，或在 Kibana 查 <code>kh_chunk</code>，把「异步」二字落到实处。</li>
       </ol>
+      <h3>配图</h3>
+      <div class="figs">
+        <figure class="fig">
+          <img src="../agent-imgs/knowledge-hub-img/RabbitMQ消息中间件使用.jpg" alt="RabbitMQ 消息中间件使用" loading="lazy">
+          <figcaption>RabbitMQ 在项目中的定位：发布后触发三路索引重建</figcaption>
+        </figure>
+      </div>
     </div>
   </article>
 
@@ -609,6 +692,25 @@ DOCUMENT_REQUIRE_APPROVAL  是否走审核（默认 true）</code></pre>
         <li>把 <code>EMBEDDING_API_KEY</code> 留空重启，观察检索质量下降（走本地哈希向量）但仍可用。</li>
       </ol>
       <div class="note ok"><b>动手理解 RRF：</b>某块在关键词路排第 2、向量路排第 5，则得分 <code>1/(60+2) + 1/(60+5)</code>。RRF 的价值是不需要两路分数可比，只看排名。</div>
+      <h3>配图</h3>
+      <div class="figs g2">
+        <figure class="fig">
+          <img src="../agent-imgs/knowledge-hub-img/Elasticsearch%20倒排索引示意图.png" alt="Elasticsearch 倒排索引示意图" loading="lazy">
+          <figcaption>倒排索引：关键词召回为什么快</figcaption>
+        </figure>
+        <figure class="fig">
+          <img src="../agent-imgs/knowledge-hub-img/基于Elasticsearch%20的混合检索(关键词+向量).png" alt="基于 Elasticsearch 的混合检索（关键词 + 向量）" loading="lazy">
+          <figcaption>基于 ES 的混合检索：关键词 + 向量</figcaption>
+        </figure>
+        <figure class="fig">
+          <img src="../agent-imgs/knowledge-hub-img/ES如何实现混合检索.png" alt="ES 如何实现混合检索" loading="lazy">
+          <figcaption>ES 里两路召回怎么并行拿到候选集</figcaption>
+        </figure>
+        <figure class="fig">
+          <img src="../agent-imgs/knowledge-hub-img/RAG混合检索链路(基于用户可见性过滤).png" alt="RAG 混合检索链路（基于用户可见性过滤）" loading="lazy">
+          <figcaption>RAG 混合检索链路：可见性过滤穿插其中</figcaption>
+        </figure>
+      </div>
     </div>
   </article>
 
@@ -674,6 +776,65 @@ createAgent({ model, tools, systemPrompt, middleware })
         <li>问一个知识库明显没有的问题，观察 <code>web_search</code> 在什么时机被触发。</li>
       </ol>
       <div class="note"><b>练习：</b>把 <code>modelCallLimitMiddleware</code> 的 runLimit 从 8 改成 3，观察多轮检索场景下的行为差异。</div>
+      <h3>配图</h3>
+      <div class="figs g2">
+        <figure class="fig">
+          <img src="../agent-imgs/knowledge-hub-img/Agenttic%20RAG%20全流程图.png" alt="Agentic RAG 全流程图" loading="lazy">
+          <figcaption>Agentic RAG 全流程图</figcaption>
+        </figure>
+        <figure class="fig">
+          <img src="../agent-imgs/knowledge-hub-img/Agentic%20RAG%20实现流程图.png" alt="Agentic RAG 实现流程图" loading="lazy">
+          <figcaption>Agentic RAG 实现流程图</figcaption>
+        </figure>
+        <figure class="fig">
+          <img src="../agent-imgs/knowledge-hub-img/Agentic%20RAG·一次提问的完整路径.png" alt="Agentic RAG·一次提问的完整路径" loading="lazy">
+          <figcaption>一次提问的完整路径：意图 → 检索 → 评估 → 改写 → 联网</figcaption>
+        </figure>
+        <figure class="fig">
+          <img src="../agent-imgs/knowledge-hub-img/企业级知识库%20Agentic%20RAG%20%26%20图谱检索.png" alt="企业级知识库 Agentic RAG 与图谱检索" loading="lazy">
+          <figcaption>企业级知识库：Agentic RAG 与图谱检索协同</figcaption>
+        </figure>
+        <figure class="fig">
+          <img src="../agent-imgs/knowledge-hub-img/KG增强-抽取业务实体图谱示例.png" alt="KG 增强 - 抽取业务实体图谱示例" loading="lazy">
+          <figcaption>KG 增强：从文档抽取实体与关系</figcaption>
+        </figure>
+        <figure class="fig">
+          <img src="../agent-imgs/knowledge-hub-img/基于%20LangChain%20Agent%20+%20Vercel%20AI%20SDK%20(UI%20Message%20Stream%20Protocol)%20的流式智对话构.png" alt="基于 LangChain Agent + Vercel AI SDK（UI Message Stream Protocol）的流式智能对话架构" loading="lazy">
+          <figcaption>流式问答架构：LangChain Agent + AI SDK UI Message Stream</figcaption>
+        </figure>
+        <figure class="fig">
+          <img src="../agent-imgs/knowledge-hub-img/AI记忆机制%20短期记忆~长期记忆.png" alt="AI 记忆机制：短期记忆与长期记忆" loading="lazy">
+          <figcaption>记忆分层：短期热窗口与长期记忆</figcaption>
+        </figure>
+        <figure class="fig">
+          <img src="../agent-imgs/knowledge-hub-img/Redis短期记忆%20滑动窗口机制图解.png" alt="Redis 短期记忆 滑动窗口机制图解" loading="lazy">
+          <figcaption>Redis 短期记忆的滑动窗口机制</figcaption>
+        </figure>
+        <figure class="fig">
+          <img src="../agent-imgs/knowledge-hub-img/Mem0%20长期记忆.png" alt="Mem0 长期记忆" loading="lazy">
+          <figcaption>Mem0 长期记忆：跨会话的用户偏好</figcaption>
+        </figure>
+        <figure class="fig">
+          <img src="../agent-imgs/knowledge-hub-img/Mem0%20用户提问.png" alt="Mem0 用户提问" loading="lazy">
+          <figcaption>Mem0 在多轮提问中的召回时机</figcaption>
+        </figure>
+        <figure class="fig">
+          <img src="../agent-imgs/knowledge-hub-img/会话与消息库表设计.png" alt="会话与消息库表设计" loading="lazy">
+          <figcaption>会话与消息的库表设计（Postgres 权威存储）</figcaption>
+        </figure>
+        <figure class="fig">
+          <img src="../agent-imgs/knowledge-hub-img/会话与消息%20一对多关系(外键级联删除).png" alt="会话与消息 一对多关系（外键级联删除）" loading="lazy">
+          <figcaption>一对多关系与外键级联删除</figcaption>
+        </figure>
+        <figure class="fig">
+          <img src="../agent-imgs/knowledge-hub-img/什么时候用外键，什么时候不用.png" alt="什么时候用外键，什么时候不用" loading="lazy">
+          <figcaption>什么时候该用外键、什么时候不该</figcaption>
+        </figure>
+        <figure class="fig">
+          <img src="../agent-imgs/knowledge-hub-img/如何选择是否使用外键(Foreign%20Key).png" alt="如何选择是否使用外键（Foreign Key）" loading="lazy">
+          <figcaption>外键取舍：约束强度与写入成本的权衡</figcaption>
+        </figure>
+      </div>
     </div>
   </article>
 
@@ -728,6 +889,17 @@ createAgent({ model, tools, systemPrompt, middleware })
         <li>最后两步是<strong>反向验证</strong>：换 <code>user</code> 身份访问 <code>/roles</code>，必须被拦成 <code>403</code> 才算通过。</li>
         <li>做完上面任一个改造练习后，回来重跑这条计划当作<strong>回归测试</strong>，确认没把别人搞坏。</li>
       </ol>
+      <h3>配图</h3>
+      <div class="figs g2">
+        <figure class="fig">
+          <img src="../agent-imgs/knowledge-hub-img/AI知识管理平台-前端项目结构与页面路由图解.png" alt="AI 知识管理平台 - 前端项目结构与页面路由图解" loading="lazy">
+          <figcaption>前端项目结构与页面路由图解</figcaption>
+        </figure>
+        <figure class="fig">
+          <img src="../agent-imgs/knowledge-hub-img/DTO与VO的区别.png" alt="DTO 与 VO 的区别" loading="lazy">
+          <figcaption>DTO 与 VO 的区别：接口契约与前端展示对象</figcaption>
+        </figure>
+      </div>
     </div>
   </article>
 
@@ -760,9 +932,33 @@ createAgent({ model, tools, systemPrompt, middleware })
         <div class="flow-box"><b>⑧ 归档 / 下架</b><span>清空三套索引，回到草稿或归档态</span></div>
       </div>
     </div>
+    <h3>配图：上传与解析（五种格式统一成 Markdown）</h3>
+    <div class="figs g2">
+      <figure class="fig">
+        <img src="../agent-imgs/knowledge-hub-img/文件上传与解析保存.png" alt="文件上传与解析保存" loading="lazy">
+        <figcaption>上传 → 解析 → 正文写 Mongo、元数据写 Postgres</figcaption>
+      </figure>
+      <figure class="fig">
+        <img src="../agent-imgs/knowledge-hub-img/PDF%20转%20Markdown%20流程图.jpg" alt="PDF 转 Markdown 流程图" loading="lazy">
+        <figcaption>PDF → Markdown（图片另存 RustFS）</figcaption>
+      </figure>
+      <figure class="fig">
+        <img src="../agent-imgs/knowledge-hub-img/docx%20转%20Markdown%20流程图.png" alt="docx 转 Markdown 流程图" loading="lazy">
+        <figcaption>DOCX → HTML → Markdown</figcaption>
+      </figure>
+      <figure class="fig">
+        <img src="../agent-imgs/knowledge-hub-img/PPTX%20转%20Markdown%20流程图.jpg" alt="PPTX 转 Markdown 流程图" loading="lazy">
+        <figcaption>PPTX → Markdown（逐页文本）</figcaption>
+      </figure>
+      <figure class="fig">
+        <img src="../agent-imgs/knowledge-hub-img/xlsx%20转%20Markdown%20流程图.jpg" alt="xlsx 转 Markdown 流程图" loading="lazy">
+        <figcaption>XLSX → Markdown 表格（逐 Sheet）</figcaption>
+      </figure>
+    </div>
   </section>
 
   <!-- ══════════ 接口速查 ══════════ -->
+
   <section id="api">
     <h2><span class="idx">B</span>接口速查（后端的全部对外能力）</h2>
     <p class="lead">
@@ -1236,5 +1432,6 @@ Value:  Bearer {{accessToken}}</code></pre>
   render();
 })();
 </script>
+<script src="../js/image-zoom.js"></script>
 </body>
 </html>

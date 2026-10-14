@@ -4,6 +4,8 @@
 
   var DATA = (window.KHTRAIN || { units: [], plan: [] });
   var GUIDE = DATA.guide || [];
+  var FIGS = DATA.figs || {};
+  var FIGBASE = '../agent-imgs/knowledge-hub-img/';
   var LKEY = 'kh_train_state_v1';
   var TKEY = 'kh_train_theme';
   var MODS = [];
@@ -150,6 +152,17 @@
     if (!body) return '';
     return '<section class="blk ' + cls + '"><h5>' + title + '</h5><div class="md">' + md(body) + '</div></section>';
   }
+  function figsHtml(u) {
+    var f = FIGS[u.id];
+    if (!f || !f.length) return '';
+    return '<section class="blk figs"><h5>配图 · 图解</h5><div class="figgrid">' +
+      f.map(function (it) {
+        var cap = it[1] || it[0];
+        return '<figure class="fig"><img src="' + esc(FIGBASE + it[0]) + '" alt="' + esc(cap) + '" loading="lazy">' +
+          '<figcaption>' + esc(cap) + '</figcaption></figure>';
+      }).join('') +
+      '</div></section>';
+  }
   function cardHtml(u, idx) {
     var st = statusOf(u.id);
     var tags = (u.tags || []).map(function (t) { return '<span class="pill">#' + esc(t) + '</span>'; }).join('');
@@ -173,6 +186,7 @@
         blk('answer', '30 秒口述模板', u.answer) +
         blk('follow', '追问与加分点', u.follow) +
         blk('files', '本项目对应代码', u.files) +
+        figsHtml(u) +
         blk('drill', '动手练习', u.drill) +
         blk('drill', '验收标准', u.accept) +
         blk('pitfall', '常见扣分点', u.pitfall) +

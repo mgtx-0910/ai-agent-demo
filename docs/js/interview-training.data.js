@@ -479,6 +479,8 @@ window.KHTRAIN.units.push(
     '| 1MB – 16MB | 拆块存储，读按需取（首屏 + 懒加载） |',
     '| > 16MB | 原文进对象存储（S3/RustFS），库里只存 key + 元数据；索引只吃分块 |',
     '',
+    '**对照本节配图**「为啥要分开存储：PG 存元数据、Mongo 存正文」：图里两条主线正是上面这张表的判断依据——**瘦表常更新**（浏览数/状态变更都不碰正文）与**大 value 单点读**（详情、发布才按 `_id` 取一次），而不是"PG 存不了大字段"。回答时先给判断线，再落到本项目的取舍（拆库换跨库一致性成本）。',
+    '',
     '### 对项目的判断',
     '本项目分库的正当理由是"大 value + 单点读写 + 刻意练习跨库一致性"；如果只为了存正文，**同库分表是更省心的方案**（还能白拿跨表事务）。',
   ].join('\n'),
@@ -2296,3 +2298,77 @@ window.KHTRAIN.guide = [
   { label: '⑤ 回到主线', hint: '跨库一致性 / 异步索引 / 检索（P0 必答）', mod: '异步 / 中间件' },
   { label: '⑥ 补课计划', hint: 'B1~B6 六天把存储基础过一遍', view: 'plan' }
 ];
+/* 单元配图：key 为 unit id，value 为 [文件名, 说明]，文件名相对 docs/agent-imgs/knowledge-hub-img/ */
+window.KHTRAIN.figs = {
+  'kb-map': [
+    ['搭建统一企业知识库，让知识找得到、用得上、解决问题更高效.png', '企业知识库的整体目标：知识找得到、用得上'],
+    ['知识库文档存储结构图.png', '知识库文档存储结构图']
+  ],
+  'n-order': [
+    ['AccessToken与RefreshToken流程图.png', '双 token：access 2h + refresh 7d'],
+    ['RBAC%20(Role-Based%20Access%20Control).png', 'RBAC（Role-Based Access Control）']
+  ],
+  'n-dto': [
+    ['DTO与VO的区别.png', 'DTO 与 VO 的区别：接口契约与前端展示对象']
+  ],
+  'pg-ddl': [
+    ['会话与消息库表设计.png', '会话与消息库表设计（表结构长什么样）'],
+    ['会话与消息%20一对多关系(外键级联删除).png', '一对多关系与外键级联删除']
+  ],
+  'pg-join': [
+    ['什么时候用外键，什么时候不用.png', '什么时候用外键、什么时候不用'],
+    ['如何选择是否使用外键(Foreign%20Key).png', '如何选择是否使用外键（约束与写入成本的权衡）']
+  ],
+  'pg-tx': [
+    ['文档状态流转图(需审批流程).png', '文档状态流转图（含审批流程）'],
+    ['文档发布.jpg', '文档发布：写库 + 投递索引消息']
+  ],
+  'mg-limit': [
+    ['MongoDB文档存储上限是16MB，超了怎么办.jpg', 'MongoDB 单文档 16MB 上限与超限处理']
+  ],
+  'db-big': [
+    ['为啥要分开存储，pg存元数据，mongo存正文.png', '为什么分开存储：PG 存元数据（瘦表、常更新）、Mongo 存正文（大 value、单点读）'],
+    ['文件上传与解析保存.png', '上传 → 解析 → 正文写 Mongo、元数据写 PG'],
+    ['PDF%20转%20Markdown%20流程图.jpg', 'PDF → Markdown（图片另存 RustFS）'],
+    ['docx%20转%20Markdown%20流程图.png', 'DOCX → HTML → Markdown'],
+    ['PPTX%20转%20Markdown%20流程图.jpg', 'PPTX → Markdown（逐页文本）'],
+    ['xlsx%20转%20Markdown%20流程图.jpg', 'XLSX → Markdown 表格（逐 Sheet）']
+  ],
+  'mq-basic': [
+    ['RabbitMQ消息中间件使用.jpg', 'RabbitMQ 在项目中的定位：发布后触发三路索引重建']
+  ],
+  'rag-hybrid': [
+    ['Elasticsearch%20倒排索引示意图.png', '倒排索引：关键词召回为什么快'],
+    ['基于Elasticsearch%20的混合检索(关键词+向量).png', '基于 ES 的混合检索：关键词 + 向量'],
+    ['ES如何实现混合检索.png', 'ES 里两路召回怎么并行拿到候选集']
+  ],
+  'rag-perm': [
+    ['RAG混合检索链路(基于用户可见性过滤).png', 'RAG 混合检索链路：可见性过滤穿插其中'],
+    ['RBAC权限模型.png', 'RBAC 基础模型：用户 → 角色 → 权限'],
+    ['RBAC权限模型(扩展支持用户直赋权限).png', '本项目扩展：角色权限 OR 用户直授权限'],
+    ['三级权限控制模型.png', '三级权限码：菜单 / 按钮 / 接口'],
+    ['文档可见性控制.png', '可见性规则如何下推到三个存储']
+  ],
+  'rag-agent': [
+    ['Agenttic%20RAG%20全流程图.png', 'Agentic RAG 全流程图'],
+    ['Agentic%20RAG%20实现流程图.png', 'Agentic RAG 实现流程图'],
+    ['Agentic%20RAG·一次提问的完整路径.png', '一次提问的完整路径：意图 → 检索 → 评估 → 改写 → 联网'],
+    ['企业级知识库%20Agentic%20RAG%20%26%20图谱检索.png', 'Agentic RAG 与图谱检索协同'],
+    ['KG增强-抽取业务实体图谱示例.png', 'KG 增强：从文档抽取实体与关系'],
+    ['基于%20LangChain%20Agent%20+%20Vercel%20AI%20SDK%20(UI%20Message%20Stream%20Protocol)%20的流式智对话构.png', '流式问答架构：LangChain Agent + AI SDK UI Message Stream']
+  ],
+  'rd-what': [
+    ['AI记忆机制%20短期记忆~长期记忆.png', '记忆分层：短期热窗口与长期记忆'],
+    ['Redis短期记忆%20滑动窗口机制图解.png', 'Redis 短期记忆的滑动窗口机制'],
+    ['Mem0%20长期记忆.png', 'Mem0 长期记忆：跨会话的用户偏好'],
+    ['Mem0%20用户提问.png', 'Mem0 在多轮提问中的召回时机']
+  ],
+  'rd-use': [
+    ['用户注册与邮箱激活流程图解.png', '注册与邮箱激活（token 存 Redis + TTL）'],
+    ['邮箱注册与激活流程图解(示例).png', '邮箱激活链路示例'],
+    ['修改密码流程图解.png', '修改密码：验证码校验 → 重新哈希']
+  ],
+  'fe-value': [
+    ['AI知识管理平台-前端项目结构与页面路由图解.png', '前端项目结构与页面路由图解']
+  ]
+};

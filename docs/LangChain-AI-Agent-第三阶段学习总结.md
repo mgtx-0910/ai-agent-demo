@@ -54,6 +54,16 @@
 
 其中最有学习价值的一条是：**Postgres 与 Mongo 是两个独立库，没有跨库事务**。于是写正文的落库顺序被设计成「先写 Mongo → 再写 Postgres → 失败则补偿删除 Mongo」（`src/document/document.service.ts`）。这类"最终一致"的取舍，是第一、二阶段在单库里写 CRUD 时不会遇到的。
 
+**本节配图**
+
+![搭建统一企业知识库，让知识找得到、用得上、解决问题更高效](<agent-imgs/knowledge-hub-img/搭建统一企业知识库，让知识找得到、用得上、解决问题更高效.png>)
+
+![知识库文档存储结构图](<agent-imgs/knowledge-hub-img/知识库文档存储结构图.png>)
+
+![为啥要分开存储，pg 存元数据，mongo 存正文](<agent-imgs/knowledge-hub-img/为啥要分开存储，pg存元数据，mongo存正文.png>)
+
+![MongoDB 文档存储上限是 16MB，超了怎么办](<agent-imgs/knowledge-hub-img/MongoDB文档存储上限是16MB，超了怎么办.jpg>)
+
 ### 二、文档生命周期：状态机 + 可开关的审核
 
 文档有四个状态，流转规则被抽成**纯函数**集中在 `src/document/document-status.ts`：
@@ -81,6 +91,12 @@
 
 审核本身是**可开关**的：`DOCUMENT_REQUIRE_APPROVAL=true`（默认）时发布进「待审核」，`false` 时直接发布。这个开关让同一套代码既能用于强合规场景，也能用于内部轻量场景——业务策略进配置，而不是进 if-else。
 
+**本节配图**
+
+![文档状态流转图（需审批流程）](<agent-imgs/knowledge-hub-img/文档状态流转图(需审批流程).png>)
+
+![文档发布](<agent-imgs/knowledge-hub-img/文档发布.jpg>)
+
 ### 三、发布之后：三路异步索引管线
 
 发布是一个轻量动作（写库 + 投递消息），真正的索引构建由 MQ 消费者完成：
@@ -107,6 +123,10 @@ DocumentPipelinePublisher ──► RabbitMQ
 4. **可见性变更走专用分支**（`updateVisibility`）：公开 / 团队变化只更新三套索引上的 `is_public` / `team_id`，**不重跑 embedding 与实体抽取**。
 
 再加上 `ELASTICSEARCH_ENABLED` / `NEO4J_ENABLED` 的降级开关，任何一路索引挂了都不阻塞主流程。这是第二阶段 `es-test`、`neo4j-graphrag` 里学到的能力第一次被"生产化"地编排。
+
+**本节配图**
+
+![RabbitMQ 消息中间件使用](<agent-imgs/knowledge-hub-img/RabbitMQ消息中间件使用.jpg>)
 
 ### 四、混合检索：双路召回 → RRF → rerank
 
@@ -138,6 +158,16 @@ query
 
 还有一个容易被忽略的工程细节：ES 里 `document_id` 用 `keyword` 而非 `long`，因为雪花 ID 超出 JS 的 `Number.MAX_SAFE_INTEGER`，用 long 会丢精度。
 
+**本节配图**
+
+![Elasticsearch 倒排索引示意图](<agent-imgs/knowledge-hub-img/Elasticsearch 倒排索引示意图.png>)
+
+![基于 Elasticsearch 的混合检索（关键词 + 向量）](<agent-imgs/knowledge-hub-img/基于Elasticsearch 的混合检索(关键词+向量).png>)
+
+![ES 如何实现混合检索](<agent-imgs/knowledge-hub-img/ES如何实现混合检索.png>)
+
+![RAG 混合检索链路（基于用户可见性过滤）](<agent-imgs/knowledge-hub-img/RAG混合检索链路(基于用户可见性过滤).png>)
+
 ### 五、Agentic RAG：会自我评估的问答
 
 `/ai/chat` 与 `/ai/chat/stream` 推理流程一致，核心在 `src/ai/ai-stream.service.ts`：
@@ -165,6 +195,16 @@ createAgent({ model, tools, systemPrompt, middleware })
 - 联网只在知识库循环结束后仍不足时触发，**不允许用网页替代已切题的内部资料**；
 - 检索一律带上当前用户的可见性范围。
 
+**本节配图**
+
+![Agentic RAG 实现流程图](<agent-imgs/knowledge-hub-img/Agentic RAG 实现流程图.png>)
+
+![Agentic RAG·一次提问的完整路径](<agent-imgs/knowledge-hub-img/Agentic RAG·一次提问的完整路径.png>)
+
+![Agentic RAG 全流程图](<agent-imgs/knowledge-hub-img/Agenttic RAG 全流程图.png>)
+
+![企业级知识库 Agentic RAG & 图谱检索](<agent-imgs/knowledge-hub-img/企业级知识库 Agentic RAG & 图谱检索.png>)
+
 ### 六、记忆：记忆不是知识库
 
 会话记忆分三层，每层职责写在名字里：
@@ -176,6 +216,24 @@ createAgent({ model, tools, systemPrompt, middleware })
 | 长期记忆 | Mem0（可选） | 跨会话的用户偏好类信息 | 未配 Key 则整体跳过 |
 
 这一节真正要记住的是那条边界：**用户偏好可以记住，制度条文必须以检索结果为准**——不能让"记忆"覆盖"知识库"。记忆层解决的是"懂你"，检索层解决的是"答对"。
+
+**本节配图**
+
+![AI 记忆机制：短期记忆 ~ 长期记忆](<agent-imgs/knowledge-hub-img/AI记忆机制 短期记忆~长期记忆.png>)
+
+![Redis 短期记忆 滑动窗口机制图解](<agent-imgs/knowledge-hub-img/Redis短期记忆 滑动窗口机制图解.png>)
+
+![Mem0 长期记忆](<agent-imgs/knowledge-hub-img/Mem0 长期记忆.png>)
+
+![Mem0 用户提问](<agent-imgs/knowledge-hub-img/Mem0 用户提问.png>)
+
+![会话与消息库表设计](<agent-imgs/knowledge-hub-img/会话与消息库表设计.png>)
+
+![会话与消息 一对多关系（外键级联删除）](<agent-imgs/knowledge-hub-img/会话与消息 一对多关系(外键级联删除).png>)
+
+![什么时候用外键，什么时候不用](<agent-imgs/knowledge-hub-img/什么时候用外键，什么时候不用.png>)
+
+![如何选择是否使用外键（Foreign Key）](<agent-imgs/knowledge-hub-img/如何选择是否使用外键(Foreign Key).png>)
 
 ### 七、权限：RBAC 只是入口，可见性下推才是关键
 
@@ -209,6 +267,26 @@ createAgent({ model, tools, systemPrompt, middleware })
 
 `teamIds` 在登录时随 `AuthUser` 放进请求上下文，避免每次查询都回表。这里体现的是第二阶段学不来的东西：**权限不是一个装饰器，而是一条从 HTTP 入口贯穿到索引存储的约束**。
 
+**本节配图**
+
+![RBAC 权限模型](<agent-imgs/knowledge-hub-img/RBAC权限模型.png>)
+
+![RBAC 权限模型（扩展支持用户直赋权限）](<agent-imgs/knowledge-hub-img/RBAC权限模型(扩展支持用户直赋权限).png>)
+
+![RBAC（Role-Based Access Control）](<agent-imgs/knowledge-hub-img/RBAC (Role-Based Access Control).png>)
+
+![三级权限控制模型](<agent-imgs/knowledge-hub-img/三级权限控制模型.png>)
+
+![文档可见性控制](<agent-imgs/knowledge-hub-img/文档可见性控制.png>)
+
+![AccessToken 与 RefreshToken 流程图](<agent-imgs/knowledge-hub-img/AccessToken与RefreshToken流程图.png>)
+
+![用户注册与邮箱激活流程图解](<agent-imgs/knowledge-hub-img/用户注册与邮箱激活流程图解.png>)
+
+![邮箱注册与激活流程图解（示例）](<agent-imgs/knowledge-hub-img/邮箱注册与激活流程图解(示例).png>)
+
+![修改密码流程图解](<agent-imgs/knowledge-hub-img/修改密码流程图解.png>)
+
 ### 八、文件解析：五种格式 → Markdown
 
 上传接口用 `FileInterceptor` 接收（限 50MB），`src/document/parser/` 按扩展名分发：
@@ -223,6 +301,18 @@ createAgent({ model, tools, systemPrompt, middleware })
 解析结果统一是 Markdown（写 Mongo），元数据（标题、分类、团队、是否公开）写 Postgres。**先把异构文件归一，后面的检索链路才不需要区分来源格式**。
 
 ---
+
+**本节配图**
+
+![文件上传与解析保存](<agent-imgs/knowledge-hub-img/文件上传与解析保存.png>)
+
+![PDF 转 Markdown 流程图](<agent-imgs/knowledge-hub-img/PDF 转 Markdown 流程图.jpg>)
+
+![docx 转 Markdown 流程图](<agent-imgs/knowledge-hub-img/docx 转 Markdown 流程图.png>)
+
+![PPTX 转 Markdown 流程图](<agent-imgs/knowledge-hub-img/PPTX 转 Markdown 流程图.jpg>)
+
+![xlsx 转 Markdown 流程图](<agent-imgs/knowledge-hub-img/xlsx 转 Markdown 流程图.jpg>)
 
 ## 第二部分：knowledge-hub-frontend——把能力变成界面
 
@@ -240,6 +330,10 @@ createAgent({ model, tools, systemPrompt, middleware })
 - `.env` 被仓库根 `.gitignore` 忽略，`client.ts` 用 `import.meta.env.VITE_API_BASE || '/api'` 兜底；
 - 生产部署没有内置反代，需要把 `/api` 指向后端或改 `VITE_API_BASE`。技术栈为 React 19 + TypeScript + Vite 8 + Ant Design 6（`zh_CN`）+ React Router 7 + AI SDK v7 + ECharts 6。
 
+**本节配图**
+
+![DTO 与 VO 的区别](<agent-imgs/knowledge-hub-img/DTO与VO的区别.png>)
+
 ### 十、路由与权限：两个包装组件
 
 `src/App.tsx` 用 `Guard`（是否登录）与 `Perm`（是否具备权限码）控制访问：
@@ -256,6 +350,10 @@ createAgent({ model, tools, systemPrompt, middleware })
 | `/admin/reviews` | `ROLE_ADMIN` 或 `ROLE_REVIEWER` | 审核工作台（通过 / 驳回） |
 
 权限判断集中在 `utils.ts` 的 `can()`：`ROLE_ADMIN` 直接放行，其余查 `user.permissions`；菜单项用同一套规则动态生成。一个容易被忽略的细节是：**登录后每次进入布局都会重新拉一次 `/auth/me`**，避免权限变更后菜单过期。文档可见性标签（公开 / 团队可见 / 仅自己）只作展示，真实过滤在后端。
+
+**本节配图**
+
+![AI 知识管理平台 - 前端项目结构与页面路由图解](<agent-imgs/knowledge-hub-img/AI知识管理平台-前端项目结构与页面路由图解.png>)
 
 ### 十一、流式问答：接上层协议，而不是自己造
 
@@ -288,6 +386,10 @@ POST /ai/chat/stream（AI SDK UI Message Stream 协议）
 
 也就是说，**回答正文之外，「意图 → 检索 → 图谱 → 评估」整条推理轨迹都是可见的**——这正是后端刻意流式输出思考过程与评估结果的意义：让用户能判断答案的依据，而不是只能选择信或不信。
 
+**本节配图**
+
+![基于 LangChain Agent + Vercel AI SDK（UI Message Stream Protocol）的流式智能对话架构](<agent-imgs/knowledge-hub-img/基于 LangChain Agent + Vercel AI SDK (UI Message Stream Protocol) 的流式智对话构.png>)
+
 ### 十二、图谱可视化：一份数据，两处复用
 
 `components/ForceGraph.tsx` 用 ECharts 力导向布局实现，图谱页与问答内的检索轨迹图共用同一个组件：
@@ -298,6 +400,10 @@ POST /ai/chat/stream（AI SDK UI Message Stream 协议）
 | 边 kind | `mentions`（文档—实体）/ `related`（实体—实体）/ `tagged` |
 
 前端还有一个值得记住的安全细节：ES 高亮结果经 `safeHighlight` 转义后再放行 `<em>`，避免高亮注入变成 XSS。
+
+**本节配图**
+
+![KG 增强 - 抽取业务实体图谱示例](<agent-imgs/knowledge-hub-img/KG增强-抽取业务实体图谱示例.png>)
 
 ---
 

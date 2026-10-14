@@ -8,11 +8,13 @@
 >
 > [📖 第三阶段学习总结](docs/LangChain-AI-Agent-第三阶段学习总结.md) — 综合实战：企业知识库系统（后端 + 前端）（2026-09-16 ~ 10-10）
 >
+> [📖 大模型基础：Transformer 图解](docs/大模型基础-Transformer图解.md) — 24 张原理图串讲：token → 注意力 → 自回归 → KV 缓存 → 训练 vs 推理 → 采样
+>
 > [🧭 Knowledge Hub 导学（HTML）](docs/html/knowledge-hub-guide.html) — 前后端双项目从零上手：两个项目是什么 · 架构与存储分工 · 技术栈 · 7 阶段改代码路线
 >
 > [❓ 面试题收集（HTML）](docs/html/interview-questions.html) — RAG / 检索 / 评测相关问答，支持搜索与按分类、难度、掌握状态筛选
 >
-> [🎯 面试强化训练（HTML）](docs/html/interview-training.html) — 前端视角补后端：26 个训练单元（原理 → 项目代码 → 动手练习 → 验收）+ 14 天冲刺计划 + 口述自测
+> [🎯 面试强化训练（HTML）](docs/html/interview-training.html) — 前端视角补后端：44 个训练单元（原理 → 项目代码 → 配图 → 动手练习 → 验收）+ 14 天冲刺计划 + 口述自测
 
 ---
 
@@ -23,6 +25,10 @@
 │   ├── LangChain-AI-Agent-第一阶段学习总结.md
 │   ├── LangChain-AI-Agent-第二阶段学习总结.md
 │   ├── LangChain-AI-Agent-第三阶段学习总结.md
+│   ├── 大模型基础-Transformer图解.md      # 📖 原理图解笔记（24 张图）
+│   ├── agent-imgs/              # 🖼️ 图解配图（被上述 md / html 引用）
+│   │   ├── knowledge-hub-img/            # 知识库相关图解（41 张）
+│   │   └── transformer-img/              # Transformer 原理图（24 张）
 │   ├── html/                    # 🌐 HTML 单页文档（浏览器直接打开）
 │   │   ├── knowledge-hub-guide.html      # 🧭 前后端双项目导学（7 阶段上手路线）
 │   │   ├── interview-questions.html      # ❓ 面试题收集（搜索 / 分类 / 难度筛选）
