@@ -9,6 +9,8 @@
 > 🧭 **新手导学（HTML）**：[docs/html/knowledge-hub-guide.html](../docs/html/knowledge-hub-guide.html) — 前后端双项目 7 阶段上手路线，建议先看它再读本 README。
 >
 > ❓ **面试题收集（HTML）**：[docs/html/interview-questions.html](../docs/html/interview-questions.html) — 围绕本项目 RAG 检索与评测的问答，含参考答案与追问。
+>
+> 🎯 **面试强化训练（HTML）**：[docs/html/interview-training.html](../docs/html/interview-training.html) — 前端视角补后端：26 个训练单元（原理 + 本项目代码位置 + 动手练习 + 验收标准），配 14 天冲刺计划。
 
 ## 目录
 

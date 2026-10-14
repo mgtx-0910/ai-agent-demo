@@ -11,6 +11,8 @@
 > [🧭 Knowledge Hub 导学（HTML）](docs/html/knowledge-hub-guide.html) — 前后端双项目从零上手：两个项目是什么 · 架构与存储分工 · 技术栈 · 7 阶段改代码路线
 >
 > [❓ 面试题收集（HTML）](docs/html/interview-questions.html) — RAG / 检索 / 评测相关问答，支持搜索与按分类、难度、掌握状态筛选
+>
+> [🎯 面试强化训练（HTML）](docs/html/interview-training.html) — 前端视角补后端：26 个训练单元（原理 → 项目代码 → 动手练习 → 验收）+ 14 天冲刺计划 + 口述自测
 
 ---
 
@@ -23,7 +25,8 @@
 │   ├── LangChain-AI-Agent-第三阶段学习总结.md
 │   ├── html/                    # 🌐 HTML 单页文档（浏览器直接打开）
 │   │   ├── knowledge-hub-guide.html      # 🧭 前后端双项目导学（7 阶段上手路线）
-│   │   └── interview-questions.html      # ❓ 面试题收集（搜索 / 分类 / 难度筛选）
+│   │   ├── interview-questions.html      # ❓ 面试题收集（搜索 / 分类 / 难度筛选）
+│   │   └── interview-training.html       # 🎯 面试强化训练（前端补后端 · 14 天计划）
 │   └── js/                      # 上述页面的数据与应用脚本
 ├── 📦 第一阶段 · 入门 Agent（2026-06-27 起）
 ├── tool-test/                   # 🔧 Tool & MCP — 工具定义与 Agent 循环
