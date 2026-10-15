@@ -178,11 +178,11 @@ footer{max-width:1400px;margin:0 auto;padding:24px 20px 60px;color:var(--muted);
       <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" style="color:var(--primary)">
         <path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H19v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 1 6.5 18H19v3H6.5A2.5 2.5 0 0 1 4 20.5z"/>
       </svg>
-      <div>Knowledge Hub 导学<small>NestJS 后端 + React 前端 · 7 阶段上手路线</small></div>
+      <div>Knowledge Hub 导学<small>NestJS 后端 + React 前端 · 8 阶段上手路线</small></div>
     </div>
     <div class="progress-wrap">
       <div class="progress-track"><div class="progress-fill" id="pf"></div></div>
-      <span class="progress-text" id="pt">0 / 7 阶段</span>
+      <span class="progress-text" id="pt">0 / 8 阶段</span>
     </div>
     <button class="btn ghost" id="expandAll">展开全部</button>
     <button class="btn ghost" id="reset">重置进度</button>
@@ -233,19 +233,20 @@ footer{max-width:1400px;margin:0 auto;padding:24px 20px 60px;color:var(--muted);
       <div class="card">
         <h3 style="margin-top:0">knowledge-hub-backend</h3>
         <p style="font-size:13.6px;color:var(--muted);margin:6px 0 12px">
-          NestJS 11 单体服务，<strong>无全局路由前缀</strong>，端口 <code>3000</code>。承载全部业务：认证权限、文档域、索引管线、混合检索、RAG 问答、知识图谱。
+          NestJS 11 单体服务，<strong>无全局路由前缀</strong>，端口 <code>3000</code>。承载全部业务：认证权限、文档域、索引管线、混合检索、RAG 问答、知识图谱，以及 <strong>Langfuse tracing 与 RAG 评测</strong>。
         </p>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           <span class="pill blue">NestJS 11</span><span class="pill blue">TypeORM + Postgres</span>
           <span class="pill blue">Mongoose + Mongo</span><span class="pill blue">Elasticsearch 8</span>
           <span class="pill blue">Neo4j 6</span><span class="pill blue">RabbitMQ</span>
-          <span class="pill blue">LangChain</span>
+          <span class="pill blue">LangChain</span><span class="pill blue">Langfuse + OTel</span>
         </div>
         <pre style="margin-top:14px"><code>cd knowledge-hub-backend
 docker compose up -d      # 起 7 个基础设施容器
-cp .env.example .env      # 至少填 OPENAI_API_KEY
+cp .env.example .env      # 至少填 OPENAI_API_KEY（可选：LANGFUSE_* 开观测）
 pnpm install
-pnpm start:dev            # http://localhost:3000</code></pre>
+pnpm start:dev            # http://localhost:3000
+pnpm eval:rag             # 可选：跑 9 条金标评测</code></pre>
       </div>
       <div class="card">
         <h3 style="margin-top:0">knowledge-hub-frontend</h3>
@@ -361,6 +362,7 @@ npm run dev               # http://localhost:5173
       <div class="card"><h3 style="margin:0;font-size:13.5px">图数据库</h3><p style="font-size:13px;color:var(--muted);margin:6px 0 0">neo4j-driver 6</p></div>
       <div class="card"><h3 style="margin:0;font-size:13.5px">缓存 / 消息</h3><p style="font-size:13px;color:var(--muted);margin:6px 0 0">Redis（ioredis）+ RabbitMQ（amqplib / amqp-connection-manager）</p></div>
       <div class="card"><h3 style="margin:0;font-size:13.5px">AI</h3><p style="font-size:13px;color:var(--muted);margin:6px 0 0">LangChain <code>createAgent</code> + Vercel AI SDK 桥接</p></div>
+      <div class="card"><h3 style="margin:0;font-size:13.5px">观测 / 评测</h3><p style="font-size:13px;color:var(--muted);margin:6px 0 0">Langfuse + OpenTelemetry（全链路 trace） · 9 条金标 + 9 个评测器（<code>pnpm eval:rag</code>）</p></div>
       <div class="card"><h3 style="margin:0;font-size:13.5px">鉴权</h3><p style="font-size:13px;color:var(--muted);margin:6px 0 0">@nestjs/jwt + passport-jwt + bcryptjs</p></div>
       <div class="card"><h3 style="margin:0;font-size:13.5px">文件解析</h3><p style="font-size:13px;color:var(--muted);margin:6px 0 0">pdf-parse / mammoth / exceljs / officeparser / turndown</p></div>
       <div class="card"><h3 style="margin:0;font-size:13.5px">校验</h3><p style="font-size:13px;color:var(--muted);margin:6px 0 0">class-validator + class-transformer + zod</p></div>
@@ -376,13 +378,13 @@ npm run dev               # http://localhost:5173
 
   <!-- ══════════ 学习路线 ══════════ -->
   <section id="roadmap">
-    <h2><span class="idx">04</span>学习路线：7 个阶段</h2>
+    <h2><span class="idx">04</span>学习路线：8 个阶段</h2>
     <p class="lead">
       顺序刻意设计成「先跑通、再拆解」：每阶段只依赖前一阶段的成果，都是独立可讲、可验证的。
-      建议每阶段跑完用 Apipost 亲手打一遍接口，比只读代码记得牢 —— 7 个阶段都已配好可一键重跑的
-      <a href="#plan">AI 测试计划</a>，跟着跑就行。点击标题展开细节，点左侧方块标记完成。
+      建议每阶段跑完用 Apipost 亲手打一遍接口，比只读代码记得牢 —— P0～P6 都已配好可一键重跑的
+      <a href="#plan">AI 测试计划</a>，跟着跑就行；P7 用 <code>pnpm eval:rag</code> 直接跑分。点击标题展开细节，点左侧方块标记完成。
     </p>
-    <div class="note"><b>时间预算：</b>全流程约 7 个工作日；只看不练约 3 天。带 ★ 的文件是「值得逐行读」的高含金量代码。</div>
+    <div class="note"><b>时间预算：</b>全流程约 8 个工作日（P7 只要半天）；只看不练约 3 天。带 ★ 的文件是「值得逐行读」的高含金量代码。</div>
   </section>
 
   <!-- ── Phase 0 ── -->
@@ -903,6 +905,101 @@ createAgent({ model, tools, systemPrompt, middleware })
     </div>
   </article>
 
+  <!-- ── Phase 7 ── -->
+  <article class="phase" id="p7">
+    <div class="phase-head">
+      <div class="phase-no">7</div>
+      <div class="phase-title">
+        <h3>可观测性与评测：Langfuse tracing + 金标跑分</h3>
+        <div class="phase-meta"><span class="pill blue">半天</span><span class="pill">进阶</span><span class="pill">看得见 · 量得准</span></div>
+      </div>
+      <div class="check" title="标记完成">✓</div>
+      <div class="chev">›</div>
+    </div>
+    <div class="phase-body">
+      <div class="goal"><b>目标：</b>解决两件事——「答错了查不出来」和「改了参数不知道变好还是变坏」：接上 Langfuse 看全链路 trace，用 <code>pnpm eval:rag</code> 把 9 条金标跑成分数。</div>
+
+      <h3>为什么单独有这一阶段</h3>
+      <ol class="tasks">
+        <li>一条 Agentic RAG 链路里有 <strong>5 次模型调用</strong>（意图分类 → 检索 → 切题评估 → 重写 → 生成），任何一次判错都表现为「答案不对」，只看日志分不清是哪一步。</li>
+        <li>调分块大小、RRF 常数、rerank 阈值这类参数，<strong>没有可重复的评测就没有方向</strong>，改完只能凭感觉。</li>
+        <li>这两件事都不改变业务功能，但决定项目能不能长期演进 —— 属于「做完功能之后必须补的一课」。</li>
+      </ol>
+
+      <h3>追踪：5 个 span 覆盖全链路</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th style="width:190px">span</th><th style="width:230px">位置</th><th>记了什么</th></tr></thead>
+          <tbody>
+            <tr><td><code>ai-chat</code></td><td><code>ai-chat.service.ts</code></td><td>非流式整轮：问题 → 答案 / 意图 / 命中标题（外层 <code>withTraceAttrs</code> 带 userId、sessionId、tags）</td></tr>
+            <tr><td><code>intent-classify</code></td><td><code>chat-query-rewrite.service.ts</code></td><td>意图分类：问题 → 路由计划（本轮开哪些工具）</td></tr>
+            <tr><td><code>retrieve-and-grade</code></td><td><code>agentic-retrieve.ts</code></td><td>检索-切题循环：实际检索用的 query、是否重试、命中数与评分</td></tr>
+            <tr><td><code>retrieve-grade</code></td><td><code>chat-query-rewrite.service.ts</code></td><td>逐条命中是否切题</td></tr>
+            <tr><td><code>rewrite-query</code></td><td><code>chat-query-rewrite.service.ts</code></td><td>追问改写：原 query → 新 query</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="note ok">
+        <b>关键取舍：不配 Key 就整体空转。</b><code>isLangfuseEnabled()</code> 要求公私钥都在，否则 <code>withObservation()</code> 直接原样执行——业务代码里<strong>没有一处 <code>if (enabled)</code></strong>。观测代码一旦需要业务分支，就会慢慢被删掉。
+      </div>
+
+      <h3>评测：9 条金标 + 9 个评测器</h3>
+      <p style="font-size:13.6px">
+        入口是 <code>pnpm eval:rag</code>（<code>src/ai/eval/run-experiment.ts</code>）。三条设计原则：<strong>跑真实链路</strong>（复用线上
+        <code>createTurnAgent()</code>，只把 UI 事件丢给 <code>silentWriter()</code>、不落会话不写记忆）、<strong>管理员身份</strong>
+        （<code>EVAL_USER_ID</code> 默认 <code>eval-admin</code>，否则文档 ACL 会把公开制度也过滤掉，全测成空召回）、<strong>金标进代码</strong>
+        （<code>golden-dataset.ts</code> 是 TS 常量，与 <code>agentic-rag.md</code> 用例对齐）。
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th style="width:92px">suite</th><th style="width:210px">例子</th><th>考的是什么行为</th></tr></thead>
+          <tbody>
+            <tr><td><code>routing</code></td><td>「你好」</td><td>闲聊不该调任何工具</td></tr>
+            <tr><td><code>kb-hit</code></td><td>差旅加签 / VPN 账号 / 发布窗口</td><td>该召回时召回、要点齐全，且不能串人（<code>mustNotContain</code>）</td></tr>
+            <tr><td><code>rewrite</code></td><td>加班餐补</td><td>一次没召回后，有没有真的换 query 再查</td></tr>
+            <tr><td><code>kb-empty</code></td><td>年会抽奖规则 / 实习生转正答辩</td><td>库里没有 → 必须拒答、不许编</td></tr>
+            <tr><td><code>web</code></td><td>今日汇率</td><td>该联网时联网，禁止拿知识库硬答</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p style="font-size:13.6px">
+        9 个指标里 <strong>6 个是纯规则</strong>（<code>intent_match</code>、<code>tool_policy</code>、<code>rewrite_loop</code>、
+        <code>hit_at_5</code>、<code>precision_at_5</code>、<code>false_hit</code>），只有 3 个主观维度用 LLM judge
+        （<code>refusal_quality</code> 拒答且没编造、<code>completeness</code> 要点覆盖 + 禁用事实、<code>groundedness</code>
+        supported 1 / mixed 0.5 / fabricated 0）。规则确定、免费、可复现；judge 有成本和方差，只留给规则表达不了的问题。
+      </p>
+
+      <h3>动手任务</h3>
+      <ol class="tasks">
+        <li>在 <code>.env</code> 里填 <code>LANGFUSE_PUBLIC_KEY</code> / <code>LANGFUSE_SECRET_KEY</code>（云版或自建均可），重启后端，去前端 <code>/chat</code> 问一句，然后在面板里找到这条 trace，数一数是不是 5 个 span。</li>
+        <li>跑一次 <code>pnpm eval:rag</code> 记下基线；再把 <code>hybrid-retrieval.service.ts</code> 的 <code>minScore</code> 调高一档重跑，观察 <code>hit_at_5</code> 与 <code>refusal_quality</code> 如何此消彼长 —— 这就是「调参要有数字」的直观体验。</li>
+        <li>把 <code>golden-dataset.ts</code> 里某条 <code>mustContain</code> 故意改错一个词，确认评测会红。这是验证「评测真的在测东西」最快的方法。</li>
+      </ol>
+
+      <h3>必读文件</h3>
+      <ul class="files">
+        <li><span class="dot"></span><div><code>src/observability/langfuse.ts</code><span class="why">约 60 行，只做三件事：启动 SDK、关闭 SDK、把一段代码包成 span（withObservation / withTraceAttrs）</span></div></li>
+        <li><span class="dot"></span><div><code>src/main.ts</code><span class="why">启动时 startLangfuseTracing()，process.once('beforeExit') 时 flush 关闭</span></div></li>
+        <li><span class="dot"></span><div><code>src/ai/ai-stream.service.ts</code><span class="why">流式链路的 CallbackHandler（@langfuse/langchain）+ runForEval()：评测与线上共用同一个 Agent</span></div></li>
+        <li><span class="dot"></span><div><code>src/ai/eval/golden-dataset.ts</code><span class="why">★ 9 条金标：问什么、该开哪些工具、要点、禁用事实</span></div></li>
+        <li><span class="dot"></span><div><code>src/ai/eval/evaluators.ts</code><span class="why">★ 9 个评测器：6 个规则 + 3 个 LLM judge（withStructuredOutput + temperature 0）</span></div></li>
+        <li><span class="dot"></span><div><code>src/ai/eval/run-experiment.ts</code><span class="why">pnpm eval:rag 入口：EVAL_FILTER / EVAL_CONCURRENCY / EVAL_JUDGE_MODEL，有 Key 就上报 agentic-rag experiment</span></div></li>
+        <li><span class="dot"></span><div><code>src/ai/chat-query-rewrite.service.ts</code><span class="why">invokeIsolated()：内部 LLM 调用用 AsyncLocalStorage 换配置，避免结构化 JSON 混进流式回答</span></div></li>
+      </ul>
+
+      <h3>观察点</h3>
+      <ol class="tasks">
+        <li>Langfuse 面板里按 tag 过滤：真人对话与评测流量混在一起，评测流量带 <code>eval</code> tag 且没有 sessionId。</li>
+        <li>终端直跑评测（不配 Key）时，逐条打印 <code>[id] intent=… answer=…</code> 与各指标分数；配了 Key 就只在面板上看。</li>
+        <li>指标返回 <code>null</code> 表示「本场景不适用」（闲聊不判忠实度），这类分数<strong>不写进 Langfuse</strong>——否则「跳过」会被当成 0 分把均值拉歪。</li>
+      </ol>
+
+      <div class="note danger">
+        <b>这一阶段的边界：</b>9 条金标只够冒烟与回归（防「改 A 坏 B」），不足以做统计意义上的效果对比；judge 与答题同源模型时存在自评偏置；目前也没有接 CI。想继续深挖，就是扩金标、换 judge 模型、把评测挂进流水线。
+      </div>
+    </div>
+  </article>
+
   <!-- ══════════ 端到端主流程 ══════════ -->
   <section id="e2e">
     <h2><span class="idx">A</span>端到端主流程（一张图串起全部阶段）</h2>
@@ -1166,9 +1263,10 @@ Value:  Bearer {{accessToken}}</code></pre>
   <section id="plan">
     <h2><span class="idx">C+</span>七条 AI 测试计划：读完就跑，跑完就懂</h2>
     <p class="lead">
-      上一章教你手工搭调试台；这一章是它的<strong>自动化升级版</strong> —— 7 个学习阶段各自编成一条可一键重跑的
+      上一章教你手工搭调试台；这一章是它的<strong>自动化升级版</strong> —— P0～P6 七个学习阶段各自编成一条可一键重跑的
       <strong>Apipost 执行计划</strong>。每条计划都带断言脚本：跑通，代表这一阶段的机制在真实链路上确实成立；
-      跑断，报错信息会直接指向出问题的环节。计划已全部建好并绑定环境<strong>「本地」</strong>。
+      跑断，报错信息会直接指向出问题的环节。计划已全部建好并绑定环境<strong>「本地」</strong>。（P7 不在这里，它的入口是
+      <code>pnpm eval:rag</code> —— 评测不该由 HTTP 用例来断言。）
     </p>
 
     <div class="note ok">
@@ -1224,6 +1322,11 @@ Value:  Bearer {{accessToken}}</code></pre>
             <td><b>P6</b></td>
             <td>RBAC 与前端数据源</td><td>10</td>
             <td>把前端各页面的数据源逐个打通（用户分页 / 角色 / 权限树 / 团队 / 个人统计），再用 <code>user</code> 做越权反向验证。</td>
+          </tr>
+          <tr>
+            <td><b>P7</b></td>
+            <td>—（不在 Apipost 计划内）</td><td>—</td>
+            <td>用 <code>pnpm eval:rag</code> 直接跑 9 条金标：验证的不是「某个接口通不通」，而是<strong>改动之后系统整体有没有退化</strong>。详见正文 <a href="#p7">P7 阶段</a>。</td>
           </tr>
         </tbody>
       </table>
@@ -1287,13 +1390,15 @@ Value:  Bearer {{accessToken}}</code></pre>
           <tr><td>P4</td><td>RRF 为什么不需要两路分数可比？rerank 挂了会怎样？</td><td><a href="#plan">P4 · 混合检索对比</a></td></tr>
           <tr><td>P5</td><td>知识库检索为什么最多两次？图谱结果为什么不能当制度原文？</td><td><a href="#plan">P5 · Agentic RAG 问答与会话</a></td></tr>
           <tr><td>P6</td><td>新增一个页面需要改哪几个文件（路由 / 权限 / API / 菜单）？</td><td><a href="#plan">P6 · RBAC 与前端数据源</a></td></tr>
+          <tr><td>P7</td><td>为什么「不配 Langfuse Key 也不影响业务」？指标返回 <code>null</code> 为什么不写进面板？评测为什么必须用管理员身份跑？</td><td>—（<code>pnpm eval:rag</code>）</td></tr>
         </tbody>
       </table>
     </div>
 
     <div class="note ok" style="margin-top:18px">
       <b>推荐节奏：</b>P0 当天跑通 → P1+P2 用两天（这是全项目的地基）→ P3+P4 用两天（看得见摸得着，成就感最高）→
-      P5 用一天半（最烧脑，建议配合 <code>agentic-rag.md</code> 场景用例一起读）→ P6 收尾并挑一个改造练习动手做掉。
+      P5 用一天半（最烧脑，建议配合 <code>agentic-rag.md</code> 场景用例一起读）→ P6 收尾并挑一个改造练习动手做掉 →
+      P7 用半天（接上 Key 跑一次评测，把「调参凭感觉」变成「看分数」）。
       每天的固定动作：读完代码 → 跑 <a href="#plan">对应的一键计划</a> → 回答上面那道自检题，三样都过才翻篇。
     </div>
   </section>
@@ -1314,7 +1419,8 @@ Value:  Bearer {{accessToken}}</code></pre>
     {id:'p3',no:'3',t:'异步索引管线：MQ 三路队列'},
     {id:'p4',no:'4',t:'混合检索：双路召回 + RRF + rerank'},
     {id:'p5',no:'5',t:'Agentic RAG 与流式问答'},
-    {id:'p6',no:'6',t:'前端工程化与综合改造'}
+    {id:'p6',no:'6',t:'前端工程化与综合改造'},
+    {id:'p7',no:'7',t:'可观测性与评测：Langfuse + 金标跑分'}
   ];
   var KEY='kh-guide-done-v1';
   var done={};

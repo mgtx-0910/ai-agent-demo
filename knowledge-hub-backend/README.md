@@ -218,7 +218,7 @@ knowledge-hub-backend/
 ├── docker-compose.yml           # 全部基础设施编排
 ├── curl-*.md                    # 各模块手工验证脚本（见第九节）
 └── src/
-    ├── main.ts                  # 启动引导：CORS + 全局 ValidationPipe
+    ├── main.ts                  # 启动引导：CORS + ValidationPipe + 启动/关闭 Langfuse tracing
     ├── app.module.ts            # 根模块：装配 12 个 TypeORM 实体与所有业务模块
     │
     ├── auth/                    # 认证与授权
@@ -271,7 +271,12 @@ knowledge-hub-backend/
     │   ├── chat-short-memory.service.ts # Redis 热窗口（miss 回填 Postgres）
     │   ├── chat-long-memory.service.ts  # Mem0 长期记忆（可选）
     │   ├── web-search.service.ts      # Bocha 联网搜索
-    │   └── agentic-retrieve.ts        # 检索结果切题评估
+    │   ├── agentic-retrieve.ts        # 检索结果切题评估
+    │   └── eval/                      # ★ RAG 评测：金标集 + 评测器 + 跑分入口
+    │       ├── golden-dataset.ts      #   9 条离线金标（routing / kb-hit / rewrite / kb-empty / web）
+    │       ├── evaluators.ts          #   9 个评测器（意图 / 工具策略 / Hit@5 / 拒答 / 忠实度）
+    │       ├── run-experiment.ts      #   pnpm eval:rag 入口，走线上同一条 Agent 链路
+    │       └── eval.types.ts          #   快照 / 金标 / 分数类型
     │
     ├── search/                  # POST /search：文档级全文检索
     ├── graph/                   # /graph：图谱全景 / 搜索 / 节点 / 边
@@ -281,6 +286,8 @@ knowledge-hub-backend/
     │   └── document-pipeline.publisher.ts # 发布时投递消息
     ├── storage/                 # RustFS（S3）对象存储
     ├── redis/                   # ioredis 全局模块
+    ├── observability/           # ★ Langfuse tracing：OTel SDK 启动 + span 封装
+    │   └── langfuse.ts          #   isLangfuseEnabled / withObservation / withTraceAttrs
     └── common/
         ├── constants/permissions.ts   # 权限码 + 管理员默认权限集
         ├── constants/roles.ts         # ROLE_ADMIN / ROLE_REVIEWER / ROLE_USER
@@ -463,6 +470,84 @@ createAgent({ model, tools, systemPrompt, middleware })
 
 解析结果是 Markdown，写入 Mongo；同时把标题、分类、团队、是否公开等元数据写入 Postgres。
 
+### 5.8 可观测性（Langfuse tracing）
+
+一条 Agentic RAG 链路里藏着 5 次模型调用（意图分类 → 检索 → 切题评估 → 重写 → 生成），出问题时只看日志很难还原「哪一步慢了、哪一步判错了」。所以接入了 Langfuse：
+
+- **接入方式是 OpenTelemetry**：`src/observability/langfuse.ts` 用 `NodeSDK + LangfuseSpanProcessor` 组装 SDK，`main.ts` 启动时 `startLangfuseTracing()`，`process.once('beforeExit')` 时 flush 关闭。
+- **不配 Key 就整体空转**：`isLangfuseEnabled()` 要求 `LANGFUSE_PUBLIC_KEY` 与 `LANGFUSE_SECRET_KEY` 同时存在，否则 `withObservation()` 直接原样执行（`run(() => undefined)`），业务代码里没有一处 `if (enabled)` 分支。
+
+上报的 span（`withObservation(name, run)` 建 span，回调里用 `update()` 补字段）：
+
+| span 名 | 位置 | 上报内容 |
+|---|---|---|
+| `ai-chat` | `ai-chat.service.ts` | 非流式整轮：input = 问题，output = 答案 / 意图 / 评测快照，metadata = 意图、命中数、命中标题；外层 `withTraceAttrs` 带 userId / sessionId / tags |
+| `retrieve-and-grade` | `agentic-retrieve.ts` | 检索-切题循环：input = 实际检索用的 query 与是否重试，output = 命中数 / 标题 / 评分 |
+| `intent-classify` | `chat-query-rewrite.service.ts` | 意图分类：input = 问题，output = 路由计划 |
+| `retrieve-grade` | 同上 | 切题评估：input = 问题 + 条数，output = 每条命中是否切题 |
+| `rewrite-query` | 同上 | 追问改写：input = 原 query，output = 新 query |
+
+流式链路（`ai-stream.service.ts`）走的是 LangChain 生态的 `CallbackHandler`（`@langfuse/langchain`），挂在 `agent.stream(..., { callbacks: [handler] })` 上，tags 为 `['agentic-rag', 意图]`，同样带 userId / sessionId；评测模式下额外加一个 `'eval'` tag 且不带 sessionId，方便在 Langfuse 里把「真人对话」和「跑分流量」分开过滤。
+
+两个实现细节：
+
+1. **内部 LLM 调用必须隔离**：意图分类 / 切题评估 / 追问改写用的是同一个模型，如果不隔离，它们输出的结构化 JSON 会被当成流式 token 混进回答里。`chat-query-rewrite.service.ts` 抽了个 `invokeIsolated()`，用 `AsyncLocalStorageProviderSingleton.runWithConfig({ callbacks: [], tags: ['kh-internal'], metadata: { khInternal: true } }, run, true)` 包住，既不污染回答流，也不在 trace 里多出根节点。
+2. **与 LangSmith 并存不冲突**：LangSmith 走 LangChain 的 callback，Langfuse 走 OTel 的 span processor，两条通道各记各的，所以第八节的 `LANGSMITH_*` 可以继续留着。
+
+### 5.9 RAG 评测（`pnpm eval:rag`）
+
+调分块大小、RRF 常数、rerank 阈值这些参数，靠「试一下凭感觉」是不行的——改完一个参数，怎么知道是变好还是变坏？所以加了一套可重复的评测。
+
+**三条设计原则**
+
+1. **跑的就是线上那条链路**：`AiStreamService.runForEval()` 复用 `createTurnAgent()`，只是把 UI 事件丢给 `silentWriter()`、用 `agent.invoke` 拿最终答案，并且不落会话、不写记忆。避免「评测链路」和「线上链路」写成两套代码。
+2. **用管理员身份跑**：`EVAL_USER_ID`（默认 `eval-admin`）对应 `ROLE_ADMIN`。否则文档 ACL 会把公开制度也过滤掉，测出来全是空召回。
+3. **金标写进代码**：`src/ai/eval/golden-dataset.ts` 是 TS 常量数组，与 `agentic-rag.md` 的场景用例对齐；`relevantDocTitles` 用标题子串而不是 documentId，因为本地 / CI 的文档 ID 会变。
+
+**9 条金标**（按 `metadata.id` / `metadata.suite`）
+
+| suite | id | 考什么 |
+|---|---|---|
+| routing | `chitchat-hello` | 「你好」→ 闲聊，禁止检索 / 图谱 / 联网 |
+| routing | `kb-not-profile` | 问的是人不是制度，但依然要走知识库 |
+| kb-hit | `kb-travel-signoff` | 差旅加签规则，要点：张敏、加签 |
+| kb-hit | `kb-vpn-account` | VPN 连不上 + 账号开通，要点：张伟 |
+| kb-hit | `kb-release-window` | 发布窗口责任人，且答案里不能出现「王芳」（防串人） |
+| rewrite | `kb-overtime-meal` | 空金标 + `expectRewrite`：只考「有没有真的改写 query」 |
+| kb-empty | `kb-annual-party` | 库里没有这条制度 → 必须拒答 |
+| kb-empty | `kb-intern-defense` | 同上（实习生转正答辩材料） |
+| web | `web-fx` | 实时汇率 → 必须联网，禁止检索 / 图谱 |
+
+**9 个评测器**（`src/ai/eval/evaluators.ts`；标 ✅ 的走 LLM judge，其余是纯规则判定）
+
+| 指标 | 判定 | LLM 裁判 |
+|---|---|---|
+| `intent_match` | 意图与金标一致 → 1 | |
+| `tool_policy` | 按意图校验 require / forbid 的检索、图谱、联网 | |
+| `rewrite_loop` | 真的重试了、且新 query ≠ 原 query | |
+| `refusal_quality` | 该拒答时拒了、且没有编造 → 1 | ✅ |
+| `hit_at_5` | 前 5 条命中金标标题 | |
+| `precision_at_5` | 前 5 条里相关的占比（一条没召回 = 0） | |
+| `false_hit` | 空金标场景下不该有任何命中 | |
+| `completeness` | 要点覆盖比例；出现 `mustNotContain` 的事实直接判 0 | ✅ |
+| `groundedness` | 答案是否被检索片段支撑：supported 1 / mixed 0.5 / fabricated 0 | ✅ |
+
+裁判模型由 `EVAL_JUDGE_MODEL` 指定，缺省依次回落 `MODEL_NAME` → `LLM_MODEL` → `qwen-plus`；`temperature: 0`，用 `withStructuredOutput(Zod schema)` 强制结构化输出。分数 `value === null` 表示「本场景不适用」（闲聊不判忠实度），这类分数**不写进 Langfuse**，避免把「跳过」当成 0 分拉低均值。
+
+**怎么跑**
+
+```bash
+pnpm eval:rag                                  # 全量 9 条
+EVAL_FILTER=kb-hit pnpm eval:rag               # 按 suite 过滤
+EVAL_FILTER=kb-release-window pnpm eval:rag    # 只跑单条
+EVAL_CONCURRENCY=4 pnpm eval:rag               # 并发（默认 2）
+```
+
+- 配了 `LANGFUSE_*`：以 `agentic-rag` 为名的 experiment 上报到 Langfuse，每条数据的 9 个分数挂在对应 trace 上，可横向对比不同 prompt / 模型 / 参数版本。
+- 没配：终端逐条打印 `[id] intent=… answer=…` 以及每个指标的分数与注释。
+
+注意：9 条只够冒烟与回归（防「改 A 坏 B」），不足以做统计意义上的效果对比；judge 与答题同源模型，存在自评偏置；目前也没接 CI。
+
 ---
 
 ## 六、API 一览
@@ -619,7 +704,9 @@ createAgent({ model, tools, systemPrompt, middleware })
 | 混合检索 | `RAG_HYBRID_TOP_K=20`、`RAG_RRF_C=60`、`RAG_CHUNK_SIZE=512`、`RAG_CHUNK_OVERLAP=64` | 召回与分块参数 |
 | 记忆 | `CHAT_SHORT_MEMORY_MAX_MESSAGES=20`、`CHAT_SHORT_MEMORY_TTL_SECONDS=86400`、`MEM0_API_KEY`（可选）、`MEM0_TOP_K=5` | 三层记忆 |
 | 联网 | `BOCHA_API_KEY`（可选） | 不配则 `web_search` 返回提示 |
-| 观测 | `LANGSMITH_TRACING`、`LANGSMITH_API_KEY`、`LANGSMITH_PROJECT` | LangSmith 跟踪（可选） |
+| 观测 · LangSmith | `LANGSMITH_TRACING`、`LANGSMITH_API_KEY`、`LANGSMITH_PROJECT` | LangChain callback 跟踪（可选） |
+| 观测 · Langfuse | `LANGFUSE_PUBLIC_KEY`、`LANGFUSE_SECRET_KEY`（两个都配才启用）、`LANGFUSE_BASE_URL` | 对话 tracing + 评测上报；不配则整套空转 |
+| 评测 | `EVAL_JUDGE_MODEL`、`EVAL_CONCURRENCY=2`、`EVAL_FILTER`、`EVAL_USER_ID` | `pnpm eval:rag` 用；`EVAL_FILTER` 匹配金标 id 或 suite |
 | ID | `SNOWFLAKE_WORKER_ID`、`SNOWFLAKE_OFFSET` | 雪花 ID 节点号与起始时间戳 |
 
 ---
@@ -643,6 +730,15 @@ createAgent({ model, tools, systemPrompt, middleware })
 
 `test-files/` 提供测试语料（多份 PDF、DOCX、XLSX、PPTX）与 `rag-*.json` 评测集。
 
+### 评测跑分（不用起 HTTP 服务）
+
+```bash
+pnpm eval:rag                        # 全量 9 条金标，走真实检索链路
+EVAL_FILTER=kb-hit pnpm eval:rag     # 按 suite 过滤；也可直接传单条 id
+```
+
+判分逻辑见 5.9。没配 Langfuse 时分数直接打在终端；配了则上报为 `agentic-rag` experiment。
+
 ---
 
 ## 十、已知限制与后续
@@ -653,6 +749,7 @@ createAgent({ model, tools, systemPrompt, middleware })
 2. **索引是最终一致**：发布后要等 MQ 消费者处理完，ES / Neo4j 才有数据。刚发布立刻搜索可能搜不到，属预期行为。
 3. **MQ 无重试与死信队列**：消费失败只记日志，需要重跑时得手工重新投递消息。
 4. **图谱抽取依赖 LLM**：未配 `OPENAI_API_KEY` 时 KG 管线会失败（其它功能不受影响）。
+5. **评测要花真实模型额度**：全量 9 条金标会跑 9 次完整 Agent 链路，其中 `refusal_quality`、`completeness`、`groundedness` 还要额外调 LLM judge；judge 与答题同源模型，存在自评偏置。
 
 **可以改进的点**
 
@@ -660,6 +757,6 @@ createAgent({ model, tools, systemPrompt, middleware })
 - 没有单元测试：`document-status.ts`、`document-access.ts` 都是纯函数，是最值得先补的两处。
 - 没有 API 文档（Swagger）：目前靠 `curl-*.md` 手工验证。
 - `docker-compose.yml` 里 Postgres 的 healthcheck 写的是 `pg_isready -U user -d hello_pg`，与实际库名 `knowledge_hub` 不一致（`pg_isready` 只探测服务是否响应，故不会阻断启动，属遗留笔误）。
-- 检索参数（分块大小、RRF 常数、rerank 阈值）是经验值，缺少基于 `rag-*.json` 评测集的自动化调参。
+- 检索参数（分块大小、RRF 常数、rerank 阈值）仍是经验值：5.9 的 `eval:rag` 已经能给出可对比的分数，但还没做「按分数自动搜参」，也没接 CI。
 
 

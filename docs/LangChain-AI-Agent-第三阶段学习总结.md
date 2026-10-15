@@ -26,6 +26,7 @@
 │  knowledge-hub-backend        09-16 起（8 次提交）                 │
 │    文档管理 · 审核状态机 · 异步三路索引 · 混合检索                  │
 │    Agentic RAG · 三层记忆 · RBAC + 可见性下推 · 文件解析            │
+│    Langfuse tracing · 9 条金标 RAG 评测                            │
 ├──────────────────────────────────────────────────────────────────┤
 │  knowledge-hub-frontend       10-10                                │
 │    登录会话 · 文档生命周期 · 全文检索 · 流式问答 · 图谱 · 系统管理    │
@@ -33,6 +34,8 @@
 ```
 
 下面按「后端 → 前端」两部分展开。
+
+> 📌 **相关章节**：**Langfuse 可观测性**与 **9 条金标的 RAG 评测**见第九节；`knowledge-hub-backend/README.md` 的 5.8 / 5.9 两节是同一批内容的工程版说明。
 
 ---
 
@@ -314,11 +317,130 @@ createAgent({ model, tools, systemPrompt, middleware })
 
 ![xlsx 转 Markdown 流程图](<agent-imgs/knowledge-hub-img/xlsx 转 Markdown 流程图.jpg>)
 
+### 九、可观测性与评测：把「感觉变好了」变成数字
+
+**先解决两个具体痛点**
+
+到第八节为止，这套系统能跑通、能演示，但有两件事说不清楚：
+
+1. 用户说「答得不对」时，日志里只有最终答案——看不出是意图判错了、召回为空、还是模型自己编的；
+2. 想调 rerank 阈值或分块大小，改完没有任何可比基准，只能凭感觉。
+
+解法正是这两块：**tracing** 解决「看得见」，**评测**解决「量得准」。
+
+**可观测性：Langfuse 接在 OpenTelemetry 上**
+
+追踪代码集中在 `src/observability/langfuse.ts`，只做三件事：启动 SDK、关闭 SDK、把一段代码包成 span。
+
+```
+main.ts
+  startLangfuseTracing()          # NodeSDK + LangfuseSpanProcessor
+  process.once('beforeExit', shutdownLangfuseTracing)
+
+业务代码
+  withObservation('retrieve-and-grade', async (update) => {
+    const r = await retrieveAndGrade(query, user, ...);   // 原逻辑一行没改
+    update({ input: { query }, output: { n: r.hits.length } });
+    return r;
+  })
+```
+
+关键取舍是**「不配 Key 就整体空转」**：
+
+```ts
+export function isLangfuseEnabled(): boolean {
+  return Boolean(process.env.LANGFUSE_PUBLIC_KEY && process.env.LANGFUSE_SECRET_KEY);
+}
+
+export async function withObservation(name, run) {
+  if (!isLangfuseEnabled()) return run(() => undefined);   // 直接跑原逻辑
+  return startActiveObservation(name, (span) => run((f) => span.update(f)));
+}
+```
+
+所以业务代码里**没有一处 `if (enabled)`**：观测常开、代价为零。这一点比「怎么上报」更重要——否则没人愿意在热路径上挂监控。
+
+整条链路一共 5 个 span，正好对应五次模型调用：
+
+| span | 位置 | 记了什么 |
+|---|---|---|
+| `ai-chat` | `ai-chat.service.ts` | 非流式整轮：问题 → 答案 / 意图 / 命中标题 |
+| `intent-classify` | `chat-query-rewrite.service.ts` | 意图分类：问题 → 路由计划（本轮开哪些工具） |
+| `retrieve-and-grade` | `agentic-retrieve.ts` | 检索-切题循环：实际 query、是否重试、命中数与评分 |
+| `retrieve-grade` | `chat-query-rewrite.service.ts` | 逐条命中是否切题 |
+| `rewrite-query` | `chat-query-rewrite.service.ts` | 追问改写：原 query → 新 query |
+
+流式链路（`ai-stream.service.ts`）是 LangChain Agent，走的是生态里的 `CallbackHandler`，挂在 `agent.stream(..., { callbacks: [handler] })` 上，tags 打 `['agentic-rag', 意图]`；评测流量额外加 `'eval'` 且不带 sessionId，这样在面板上能把「真人对话」和「跑分」分开看。
+
+**踩到的一个坑：内部调用会被当成回答流**
+
+意图分类、切题评估、追问改写用的是**和回答同一个模型**。它们输出的结构化 JSON 一旦进入 LangChain 的回调链，就会混进流式回答——用户会在答案里看到评测用的 JSON。解决办法是抽一个 `invokeIsolated()`：
+
+```ts
+AsyncLocalStorageProviderSingleton.runWithConfig(
+  { callbacks: [], tags: ['kh-internal'], metadata: { khInternal: true } },
+  run,
+  true,   // 不再产生 tracing 根节点
+);
+```
+
+**评测：9 条金标 + 9 个评测器**
+
+入口是 `pnpm eval:rag`（`src/ai/eval/run-experiment.ts`），三条设计原则：
+
+| 原则 | 做法 | 不这么做会怎样 |
+|---|---|---|
+| 跑真实链路 | `runForEval()` 复用 `createTurnAgent()`，只把 UI 事件丢给 `silentWriter()`、用 `invoke` 取最终文本 | 评测链路与线上分叉，分数再好看也没意义 |
+| 管理员身份 | `EVAL_USER_ID` 默认 `eval-admin`（`ROLE_ADMIN`） | 文档 ACL 会把公开制度也过滤掉，全测成空召回 |
+| 金标进代码 | `golden-dataset.ts` 是 TS 常量，与 `agentic-rag.md` 用例对齐 | 金标散在 JSON / 表格里，改动不可评审、容易被绕过 |
+
+9 条金标按 suite 分五类，覆盖的是**行为**而不只是「答对」：
+
+| suite | 例子 | 考的是 |
+|---|---|---|
+| routing | 「你好」 | 闲聊不该调任何工具 |
+| kb-hit | 差旅加签、VPN 账号、发布窗口 | 该召回时召回、要点齐全，且不能串人（`mustNotContain`） |
+| rewrite | 加班餐补 | 一次没召回后，有没有真的换 query 再查 |
+| kb-empty | 年会抽奖规则 | 库里没有 → 必须拒答、不许编 |
+| web | 今日汇率 | 该联网时联网，禁止拿知识库硬答 |
+
+评测器 9 个，**能用规则的绝不用模型**，只有 3 个主观维度交给 LLM 裁判：
+
+| 指标 | 判定 | 裁判 |
+|---|---|---|
+| `intent_match` | 意图与金标一致 | 规则 |
+| `tool_policy` | 按意图校验工具的开 / 禁 | 规则 |
+| `rewrite_loop` | 重试了、且新 query ≠ 旧 query | 规则 |
+| `hit_at_5` / `precision_at_5` | 前 5 条命中金标标题 / 相关占比 | 规则 |
+| `false_hit` | 空金标场景不该有命中 | 规则 |
+| `refusal_quality` | 该拒答时拒了、且没编造 | LLM |
+| `completeness` | 要点覆盖率；出现禁用事实直接 0 | LLM |
+| `groundedness` | supported 1 / mixed 0.5 / fabricated 0 | LLM |
+
+```bash
+pnpm eval:rag                                  # 全量 9 条
+EVAL_FILTER=kb-hit pnpm eval:rag               # 按 suite
+EVAL_FILTER=kb-release-window pnpm eval:rag    # 单条
+EVAL_CONCURRENCY=4 pnpm eval:rag               # 并发，默认 2
+```
+
+配了 `LANGFUSE_*`，结果就作为 `agentic-rag` experiment 上报，每个分数挂在对应 trace 上，可以对比不同 prompt / 模型 / 参数版本；没配则在终端逐条打印。
+
+还有个小设计：指标返回 `null` 表示「本场景不适用」（闲聊不判忠实度），这种分数**不写进 Langfuse**——否则「跳过」会被当成 0 分，把均值拉歪。
+
+**这一节留下的三条判断**
+
+1. **观测要能零成本接入**：不配 Key 就空转，才敢把它放进主链路；
+2. **评测必须跑生产链路**：共用同一个 Agent，评测代码只是「不落库、不推流」；
+3. **分数要能表达「不适用」**：`null` 与 `0` 是两件事，混在一起指标就失去解释力。
+
+---
+
 ## 第二部分：knowledge-hub-frontend——把能力变成界面
 
 前端的定位很克制：**只负责体验层，真正的权限与可见性拦截仍在后端**，前端隐藏菜单 / 路由只是减少误操作。
 
-### 九、工程与对接：一个 `/api` 代理解决跨域
+### 十、工程与对接：一个 `/api` 代理解决跨域
 
 ```
 浏览器 ──► Vite dev server :5173 ──/api/*──► http://127.0.0.1:3000/*
@@ -334,7 +456,7 @@ createAgent({ model, tools, systemPrompt, middleware })
 
 ![DTO 与 VO 的区别](<agent-imgs/knowledge-hub-img/DTO与VO的区别.png>)
 
-### 十、路由与权限：两个包装组件
+### 十一、路由与权限：两个包装组件
 
 `src/App.tsx` 用 `Guard`（是否登录）与 `Perm`（是否具备权限码）控制访问：
 
@@ -355,7 +477,7 @@ createAgent({ model, tools, systemPrompt, middleware })
 
 ![AI 知识管理平台 - 前端项目结构与页面路由图解](<agent-imgs/knowledge-hub-img/AI知识管理平台-前端项目结构与页面路由图解.png>)
 
-### 十一、流式问答：接上层协议，而不是自己造
+### 十二、流式问答：接上层协议，而不是自己造
 
 `ChatPage.tsx` 没有用后端封装的 `/ai/chat`，而是直接用 AI SDK 的流式客户端：
 
@@ -390,7 +512,7 @@ POST /ai/chat/stream（AI SDK UI Message Stream 协议）
 
 ![基于 LangChain Agent + Vercel AI SDK（UI Message Stream Protocol）的流式智能对话架构](<agent-imgs/knowledge-hub-img/基于 LangChain Agent + Vercel AI SDK (UI Message Stream Protocol) 的流式智对话构.png>)
 
-### 十二、图谱可视化：一份数据，两处复用
+### 十三、图谱可视化：一份数据，两处复用
 
 `components/ForceGraph.tsx` 用 ECharts 力导向布局实现，图谱页与问答内的检索轨迹图共用同一个组件：
 
@@ -407,9 +529,9 @@ POST /ai/chat/stream（AI SDK UI Message Stream 协议）
 
 ---
 
-## 十三、总结
+## 十四、总结
 
-### 13.1 第三阶段究竟交付了什么？
+### 14.1 第三阶段究竟交付了什么？
 
 | 维度 | 第一 / 第二阶段 | 第三阶段 |
 |---|---|---|
@@ -419,10 +541,11 @@ POST /ai/chat/stream（AI SDK UI Message Stream 协议）
 | 问答 | 一次调用 | Agentic RAG：意图 → 检索 → 评估 → 改写 → 联网 |
 | 权限 | 接口级装饰器 | RBAC + 可见性规则下推到 PG / ES / Neo4j |
 | 交付 | "能跑给你看" | 能登录、能上传、能审核、能检索、能问、能管 |
+| 观测与评测 | 靠日志和感觉 | 5 个 span 的全链路 tracing + 9 条金标可重复跑分 |
 
 一条贯穿全项目的主线是：**前面学的是"让每块能力跑起来"，这一阶段学的是"让它们互相约束着一起跑"**——索引要跟着状态走，权限要跟着数据走，记忆不能越权替知识库说话。
 
-### 13.2 四条认识链的终点
+### 14.2 四条认识链的终点
 
 把三个阶段连起来，四条主线的演进是完整的：
 
@@ -432,14 +555,15 @@ POST /ai/chat/stream（AI SDK UI Message Stream 协议）
 检索能力：向量召回 → 混合检索 + Rerank → GraphRAG → 双路并行 + RRF + 阈值 + 引用出处 + 可见性过滤
 记忆体系：截断/总结/检索 → Redis 短期 + Mem0 长期 + LangGraph checkpointer → 三层记忆并明确"记忆 ≠ 知识库"
 权限边界：无 → 单接口鉴权 → 三角色 + 三级权限码 + 三存储可见性下推
+观测评测：无 → 翻日志排查 → Langfuse tracing（5 个 span）+ 9 条金标 RAG 评测
 ```
 
-### 13.3 已知限制（写在文档里，比藏在代码里好）
+### 14.3 已知限制（写在文档里，比藏在代码里好）
 
-后端：无跨库事务（靠补偿删除保证最终一致）；索引是最终一致（刚发布立刻搜不到属预期）；MQ 无重试与死信队列；图谱抽取依赖 LLM；表结构全量依赖 `init.sql`、缺迁移工具；`document-status.ts` / `document-access.ts` 是纯函数却仍未补单测。
+后端：无跨库事务（靠补偿删除保证最终一致）；索引是最终一致（刚发布立刻搜不到属预期）；MQ 无重试与死信队列；图谱抽取依赖 LLM；表结构全量依赖 `init.sql`、缺迁移工具；`document-status.ts` / `document-access.ts` 是纯函数却仍未补单测；评测只有 9 条金标（够冒烟与回归、不够统计结论），judge 与答题同源模型存在自评偏置，也未接 CI。
 
 前端：token 存 localStorage 有 XSS 风险（更稳的是 httpOnly Cookie + CSRF）；无自动化测试，只有 oxlint 与手工验证；问答流未做断线重连；审核无实时通知。
 
-### 13.4 一句话收尾
+### 14.4 一句话收尾
 
-第一阶段学会的是"**用 LangChain 把大模型变成工业流水线**"；第二阶段学会的是"**把流水线装进真实系统**"；第三阶段学会的是"**把系统变成一个别人真能用的东西**"——文档进得去、知识找得到、答案有出处、权限管得住。到这里，仓库不再是一堆示例的集合，而是一个能交付、也能说清哪里还没做好的项目。
+第一阶段学会的是"**用 LangChain 把大模型变成工业流水线**"；第二阶段学会的是"**把流水线装进真实系统**"；第三阶段学会的是"**把系统变成一个别人真能用的东西**"——文档进得去、知识找得到、答案有出处、权限管得住、效果量得准。到这里，仓库不再是一堆示例的集合，而是一个能交付、也能说清哪里还没做好的项目。
