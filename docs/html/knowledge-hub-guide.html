@@ -888,7 +888,7 @@ createAgent({ model, tools, systemPrompt, middleware })
       <h3>Apipost 验证 · 计划「P6 · RBAC 与前端数据源」</h3>
       <ol class="tasks">
         <li>这条 10 步计划把前端各页面的数据源逐个打通：用户分页 / 角色列表 / 权限树 / 权限清单 / 团队树 / 我的团队 / 个人统计。</li>
-        <li>最后两步是<strong>反向验证</strong>：换 <code>user</code> 身份访问 <code>/roles</code>，必须被拦成 <code>403</code> 才算通过。</li>
+        <li>最后两步是<strong>反向验证</strong>：换 <code>user</code> 身份访问 <code>/roles/list</code>，必须被拦成 <code>403</code> 才算通过。</li>
         <li>做完上面任一个改造练习后，回来重跑这条计划当作<strong>回归测试</strong>，确认没把别人搞坏。</li>
       </ol>
       <h3>配图</h3>
