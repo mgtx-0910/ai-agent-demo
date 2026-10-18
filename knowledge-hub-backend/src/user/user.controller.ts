@@ -7,6 +7,8 @@ import {
   Post,
   Put,
   Query,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import { QueryUserDto } from './dto/query-user.dto';
@@ -66,6 +68,7 @@ export class UserController {
   }
 
   @Post()
+  @HttpCode(HttpStatus.OK)
   @Roles(RoleCode.ADMIN)
   async createUser(@Body() dto: CreateUserDto) {
     const userId = await this.userService.createUser(dto);

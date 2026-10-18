@@ -11,6 +11,8 @@ import {
   UploadedFile,
   UseInterceptors,
   BadRequestException,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { DocumentService } from './document.service';
@@ -37,6 +39,7 @@ export class DocumentController {
 
   /** 创建文档 */
   @Post()
+  @HttpCode(HttpStatus.OK)
   @RequirePermission(PermissionCode.documentCreate)
   create(@Body() dto: CreateDocumentDto, @CurrentUser() user: AuthUser) {
     return this.documentService.create(dto, user);
@@ -44,6 +47,7 @@ export class DocumentController {
 
   /** 上传文件并解析为 Markdown，创建草稿（form-data 字段名: file） */
   @Post('upload/parse')
+  @HttpCode(HttpStatus.OK)
   @RequirePermission(PermissionCode.documentCreate)
   @UseInterceptors(
     FileInterceptor('file', {
@@ -107,6 +111,7 @@ export class DocumentController {
 
   /** 单独提交审核（也可由 publish 在需审核时内部调用） */
   @Post(':id/reviews/submit')
+  @HttpCode(HttpStatus.OK)
   @RequirePermission(PermissionCode.documentEdit)
   submitReview(@Param('id') id: string, @CurrentUser() user: AuthUser) {
     return this.reviewService.submitForReview(id, user);
@@ -134,6 +139,7 @@ export class DocumentController {
 
   /** 审核通过 → 文档 Published + 重建索引 */
   @Post('reviews/tasks/:taskId/approve')
+  @HttpCode(HttpStatus.OK)
   @Roles(RoleCode.REVIEWER, RoleCode.ADMIN)
   @RequirePermission(PermissionCode.documentReview)
   approveReview(
@@ -151,6 +157,7 @@ export class DocumentController {
 
   /** 审核驳回 → 文档回 Draft，作者可修改后再次 submit */
   @Post('reviews/tasks/:taskId/reject')
+  @HttpCode(HttpStatus.OK)
   @Roles(RoleCode.REVIEWER, RoleCode.ADMIN)
   @RequirePermission(PermissionCode.documentReview)
   rejectReview(

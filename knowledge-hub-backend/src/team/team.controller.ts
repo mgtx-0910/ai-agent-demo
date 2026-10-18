@@ -7,6 +7,8 @@ import {
   Post,
   Put,
   Query,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { TeamService } from './team.service';
 import {
@@ -25,6 +27,7 @@ export class TeamController {
   constructor(private readonly teamService: TeamService) {}
 
   @Post()
+  @HttpCode(HttpStatus.OK)
   @Roles(RoleCode.ADMIN)
   @RequirePermission('system:team')
   create(@Body() dto: CreateTeamDto) {
@@ -74,6 +77,7 @@ export class TeamController {
   }
 
   @Post(':id/members')
+  @HttpCode(HttpStatus.OK)
   @Roles(RoleCode.ADMIN)
   @RequirePermission('system:team')
   addMembers(@Param('id') id: string, @Body() userIds: string[]) {

@@ -554,6 +554,10 @@ EVAL_CONCURRENCY=4 pnpm eval:rag               # 并发（默认 2）
 
 > 无全局路由前缀；除「公开」外都需带 `Authorization: Bearer <accessToken>`。
 > 权限列的含义：`@Public` 免登录；`ROLE_*` 是角色要求；`domain:action` 是权限码要求。
+>
+> **状态码约定：业务成功一律 200**，包括 POST 创建类接口（不用 201）—— 每个 POST handler 都显式标了 `@HttpCode(HttpStatus.OK)`。失败仍返回语义化的 400 / 401 / 403 / 404 / 500，由 Nest 异常过滤器处理。
+> 这么定是为了对齐 Apipost 自动化回归（每个接口的成功样例都断言「期望 200」），前端也只判响应体、不依赖状态码判成败。
+> **这是刻意约定，不是 bug，不要"修正"回 201**（`@Post` 默认就是 201，删掉 `@HttpCode` 就会破坏约定）。
 
 ### 认证 `/auth`
 

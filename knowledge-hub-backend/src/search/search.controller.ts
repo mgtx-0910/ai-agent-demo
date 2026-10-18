@@ -1,4 +1,10 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  HttpCode,
+  HttpStatus,
+  Post,
+} from '@nestjs/common';
 import { SearchIndexService } from '../pipeline/search-index.service';
 import { SearchDocumentsDto } from './dto/search.dto';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';
@@ -13,6 +19,7 @@ export class SearchController {
 
   /** 关键词检索已发布文档（ES kh_document） */
   @Post()
+  @HttpCode(HttpStatus.OK)
   @RequirePermission(PermissionCode.search)
   search(@Body() dto: SearchDocumentsDto, @CurrentUser() user: AuthUser) {
     return this.searchIndex.searchDocuments({

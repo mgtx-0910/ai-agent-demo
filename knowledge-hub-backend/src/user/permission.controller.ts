@@ -7,6 +7,8 @@ import {
   Post,
   Put,
   Query,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { PermissionService } from './permission.service';
 import {
@@ -55,6 +57,7 @@ export class PermissionController {
   }
 
   @Post()
+  @HttpCode(HttpStatus.OK)
   @RequirePermission('system:permission:create')
   async create(@Body() dto: CreatePermissionDto) {
     return this.permissionService.create(dto);

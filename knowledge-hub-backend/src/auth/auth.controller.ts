@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Post, Put, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Post,
+  Put,
+  Query,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto, RefreshTokenDto, RegisterDto } from './dto/auth.dto';
 import { ResetPasswordByEmailDto, SendResetCodeDto } from '../user/dto/extra.dto';
@@ -14,18 +23,21 @@ export class AuthController {
 
   @Public()
   @Post('register')
+  @HttpCode(HttpStatus.OK)
   register(@Body() dto: RegisterDto) {
     return this.authService.register(dto);
   }
 
   @Public()
   @Post('login')
+  @HttpCode(HttpStatus.OK)
   login(@Body() dto: LoginDto) {
     return this.authService.login(dto);
   }
 
   @Public()
   @Post('refresh')
+  @HttpCode(HttpStatus.OK)
   refresh(@Body() dto: RefreshTokenDto) {
     return this.authService.refresh(dto.refreshToken);
   }
@@ -38,18 +50,21 @@ export class AuthController {
 
   @Public()
   @Post('password/reset/send-code')
+  @HttpCode(HttpStatus.OK)
   sendResetCode(@Body() dto: SendResetCodeDto) {
     return this.authService.sendResetCode(dto);
   }
 
   @Public()
   @Post('password/reset')
+  @HttpCode(HttpStatus.OK)
   resetPassword(@Body() dto: ResetPasswordByEmailDto) {
     return this.authService.resetPasswordByEmail(dto);
   }
 
   /** 无状态 JWT：客户端丢弃 token 即可 */
   @Post('logout')
+  @HttpCode(HttpStatus.OK)
   logout() {
     return { message: '已退出登录' };
   }

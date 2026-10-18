@@ -8,6 +8,8 @@ import {
   Post,
   Query,
   Res,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { AiChatService } from './ai-chat.service';
@@ -41,6 +43,7 @@ export class AiController {
    * 不调用 LLM，只返回 kh_chunk 命中。
    */
   @Post('rag/search')
+  @HttpCode(HttpStatus.OK)
   @RequirePermission(PermissionCode.search)
   search(@Body() dto: RagSearchDto, @CurrentUser() user: AuthUser) {
     return this.retrieval.retrieve(dto.query.trim(), dto.topK ?? 5, user);
@@ -48,6 +51,7 @@ export class AiController {
 
   /** RAG 对话：Agentic RAG（评估切题，不足则改写再查；kb_then_web 时再联网） */
   @Post('ai/chat')
+  @HttpCode(HttpStatus.OK)
   @RequirePermission(PermissionCode.search)
   chat(@Body() dto: ChatDto, @CurrentUser() user: AuthUser) {
     return this.aiChat.chat(dto.content, dto.topK ?? 5, user, dto.sessionId);
@@ -58,6 +62,7 @@ export class AiController {
    * Agent 循环：retrieve_knowledge → 评估 → rewrite_query → 再检索；仍不足才 web_search。
    */
   @Post('ai/chat/stream')
+  @HttpCode(HttpStatus.OK)
   @RequirePermission(PermissionCode.search)
   streamChat(
     @Body() dto: ChatStreamDto,
@@ -74,6 +79,7 @@ export class AiController {
   }
 
   @Post('ai/sessions')
+  @HttpCode(HttpStatus.OK)
   @RequirePermission(PermissionCode.search)
   createSession(@Body() dto: CreateSessionDto, @CurrentUser() user: AuthUser) {
     return this.sessions.create(user.userId, dto);

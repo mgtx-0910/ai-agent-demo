@@ -6,6 +6,8 @@ import {
   Param,
   Post,
   Put,
+  HttpCode,
+  HttpStatus,
 } from '@nestjs/common';
 import { RoleService } from './role.service';
 import { PermissionService } from './permission.service';
@@ -47,6 +49,7 @@ export class RoleController {
   }
 
   @Post()
+  @HttpCode(HttpStatus.OK)
   async createRole(@Body() dto: CreateRoleDto) {
     const role = await this.roleService.create(dto);
     return {
