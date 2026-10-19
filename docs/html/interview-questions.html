@@ -68,11 +68,27 @@ main{min-width:0}
 .md th,.md td{padding:7px 11px;text-align:left;border-bottom:1px solid var(--border);vertical-align:top}
 .md th{font-size:11.5px;text-transform:uppercase;color:var(--muted);background:var(--panel-2)}
 .md tbody tr:last-child td{border-bottom:none}
+.faq{display:grid;gap:8px}
+.fq{border:1px solid var(--border);border-radius:11px;background:var(--panel);overflow:hidden}
+.fqh{width:100%;display:flex;gap:10px;align-items:flex-start;padding:10px 12px;background:none;border:0;cursor:pointer;text-align:left;font:inherit;color:var(--text);line-height:1.55}
+.fqh:hover{background:var(--panel-2)}
+.fqn{flex:none;margin-top:1px;padding:1px 6px;border-radius:6px;border:1px solid var(--warn);background:var(--warn-soft);color:var(--warn);font-size:11px;font-weight:700}
+.fqt{flex:1;min-width:0;font-size:13.4px}
+.fxi{flex:none;position:relative;width:16px;height:16px;margin-top:2px}
+.fxi::before,.fxi::after{content:"";position:absolute;background:var(--muted);border-radius:1px;transition:transform .18s ease,opacity .18s ease}
+.fxi::before{left:3px;top:7px;width:10px;height:1.6px}
+.fxi::after{left:7px;top:3px;width:1.6px;height:10px}
+.fq.open .fxi::after{transform:rotate(90deg);opacity:0}
+.fqb{display:none;border-top:1px dashed var(--border);padding:10px 13px 12px;background:var(--panel-2)}
+.fq.open .fqb{display:block}
+.fqb .md{font-size:13.4px}
+.fqb .md>p:first-child{margin-top:0}
+.fqb .md>p:last-child{margin-bottom:0}
 .empty{text-align:center;padding:70px 20px;color:var(--muted);background:var(--panel);border:1px dashed var(--border-strong);border-radius:14px}
 .empty .big{font-size:38px;margin-bottom:10px;opacity:.75}
 .empty h3{margin:0 0 6px;color:var(--text);font-size:16px}.empty p{margin:0 0 16px;font-size:13.5px}
 @media (max-width:900px){.layout{grid-template-columns:1fr;padding:18px 14px 70px}.sidebar{position:static;max-height:none;border-bottom:1px solid var(--border);padding-bottom:14px}.fl{display:flex;flex-wrap:wrap;gap:5px}.fl button{width:auto;border:1px solid var(--border)}}
-@media print{.topbar,.sidebar{display:none!important}.layout{display:block}.qb{display:block!important}}
+@media print{.topbar,.sidebar{display:none!important}.layout{display:block}.qb{display:block!important}.fqb{display:block!important}}
 </style>
 </head>
 <body>

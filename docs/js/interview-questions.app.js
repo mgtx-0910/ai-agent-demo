@@ -9,7 +9,7 @@
   var SC = { 待复习: 'red', 复习中: 'amber', 已掌握: 'green' };
   var DC = { 简单: 'green', 中等: 'amber', 困难: 'red' };
 
-  var S = { items: [], q: '', status: '', cat: '', diff: '', open: {} };
+  var S = { items: [], q: '', status: '', cat: '', diff: '', open: {}, fo: {} };
   var $ = function (id) { return document.getElementById(id); };
 
   /* ---------- 工具 ---------- */
@@ -27,9 +27,27 @@
       status: STATUSES.indexOf(it && it.status) > -1 ? it.status : '待复习',
       tags: Array.isArray(it && it.tags) ? it.tags.map(String).map(function (t) { return t.trim(); }).filter(Boolean) : [],
       answer: (it && it.answer) || '',
-      follow: (it && it.follow) || '',
+      follow: normFollow(it && it.follow),
       note: (it && it.note) || ''
     };
+  }
+
+  /* 追问：支持 [{q,a}] 结构化写法，也兼容旧的按行文本 */
+  function normFollow(v) {
+    if (Array.isArray(v)) {
+      return v.map(function (x) {
+        if (typeof x === 'string') return { q: x.trim(), a: '' };
+        return {
+          q: String((x && (x.q || x.title)) || '').trim(),
+          a: String((x && x.a) || '').trim()
+        };
+      }).filter(function (x) { return x.q; });
+    }
+    if (typeof v === 'string') {
+      return v.split('\n').map(function (s) { return s.replace(/^\s*[-*]\s*/, '').trim(); })
+        .filter(Boolean).map(function (q) { return { q: q, a: '' }; });
+    }
+    return [];
   }
 
   /* ---------- 极简 Markdown ---------- */
@@ -90,7 +108,8 @@
     if (S.cat && it.cat !== S.cat) return false;
     if (S.diff && it.diff !== S.diff) return false;
     if (S.q) {
-      var hay = [it.title, it.answer, it.follow, it.note, it.cat, it.tags.join(' ')].join('\n').toLowerCase();
+      var followText = it.follow.map(function (f) { return f.q + ' ' + f.a; }).join('\n');
+      var hay = [it.title, it.answer, followText, it.note, it.cat, it.tags.join(' ')].join('\n').toLowerCase();
       var parts = S.q.toLowerCase().split(/\s+/).filter(Boolean);
       for (var i = 0; i < parts.length; i++) if (hay.indexOf(parts[i]) === -1) return false;
     }
@@ -160,7 +179,7 @@
         '</div>' +
         '<div class="qb">' +
         block('answer', '参考答案', it.answer) +
-        block('follow', '可能的追问', it.follow) +
+        blockFollow(it) +
         block('note', '我的笔记 / 项目对应实现', it.note) +
         '</div></article>';
     }).join('');
@@ -169,10 +188,38 @@
     return '<div class="blk ' + cls + '"><h5>' + label + '</h5><div class="md">' +
       (text && text.trim() ? md(text) : '<p style="color:var(--muted)">（暂未填写）</p>') + '</div></div>';
   }
+  function blockFollow(it) {
+    var list = it.follow;
+    if (!list.length) return block('follow', '可能的追问', '');
+    var items = list.map(function (f, i) {
+      var key = it.id + '#' + i;
+      var open = S.fo[key] ? ' open' : '';
+      return '<div class="fq' + open + '" data-fk="' + esc(key) + '">' +
+        '<button type="button" class="fqh" aria-expanded="' + (open ? 'true' : 'false') + '">' +
+        '<span class="fqn">Q' + (i + 1) + '</span>' +
+        '<span class="fqt">' + inline(f.q) + '</span>' +
+        '<span class="fxi" aria-hidden="true"></span>' +
+        '</button>' +
+        '<div class="fqb"><div class="md">' +
+        (f.a ? md(f.a) : '<p style="color:var(--muted)">（待补充答案）</p>') +
+        '</div></div></div>';
+    }).join('');
+    return '<div class="blk follow"><h5>可能的追问（点击展开作答）</h5><div class="faq">' + items + '</div></div>';
+  }
   function render() { renderStats(); renderFilters(); renderList(); }
 
   /* ---------- 事件 ---------- */
   $('list').addEventListener('click', function (e) {
+    var fh = e.target.closest('.fqh');
+    if (fh) {
+      var fq = fh.parentNode;
+      var fk = fq.getAttribute('data-fk');
+      var on = !S.fo[fk];
+      S.fo[fk] = on;
+      fq.classList.toggle('open', on);
+      fh.setAttribute('aria-expanded', on ? 'true' : 'false');
+      return;
+    }
     var card = e.target.closest('.q');
     if (!card) return;
     if (e.target.closest('.qb')) return;
