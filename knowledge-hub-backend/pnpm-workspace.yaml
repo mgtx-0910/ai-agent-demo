@@ -1,4 +1,6 @@
 allowBuilds:
+  better-sqlite3: false
   core-js: true
+  protobufjs: false
   tesseract.js: true
   unrs-resolver: true

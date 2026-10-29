@@ -1,10 +1,4 @@
-import {
-  Body,
-  Controller,
-  HttpCode,
-  HttpStatus,
-  Post,
-} from '@nestjs/common';
+import { Body, Controller, Post, HttpCode, HttpStatus } from '@nestjs/common';
 import { SearchIndexService } from '../pipeline/search-index.service';
 import { SearchDocumentsDto } from './dto/search.dto';
 import { RequirePermission } from '../auth/decorators/require-permission.decorator';

@@ -32,7 +32,7 @@
 ### 一条端到端的故事
 
 ```
-1. 作者上传 PDF/Word/Excel/PPT/TXT → 后端解析成 Markdown，写入草稿（状态：草稿）
+1. 作者上传 PDF / 图片 / Word / Excel / PPT / TXT → 后端经 MinerU 精准解析成 Markdown，写入草稿（状态：草稿）
 
 2. 作者点「发布」
      ├─ 开启审核：状态变「待审核」并生成待办；审核员通过 → 「已发布」+ 异步建索引
@@ -50,8 +50,11 @@
 | 能力 | 说明 |
 |---|---|
 | 文档管理 | 上传解析、Markdown 正文存储、元数据、软删除、归档/下架 |
+| 文档互动 | 点赞 / 收藏 / 评论（两级）/ 分享链接（可选密码与有效期），互动写入站内通知 |
+| 分类与版本 | 分类树维护（文档只能挂到启用的分类）；正文每次变更留版本快照，可回滚 |
+| 站内通知 | 点赞 / 评论 / 系统广播三类通知，未读数与已读标记 |
 | 发布审核 | 可开关的审核流程，每次提交与结论落 `kh_document_review` |
-| 文件解析 | PDF / DOCX / XLSX / PPTX / TXT / MD → Markdown，PDF 可抽图 |
+| 文件解析 | PDF / 图片 / DOC(X) / PPT(X) / XLS(X) 走 MinerU 精准解析（公式、表格、版式还原），TXT / MD 本地直读；解析出的图片落 RustFS |
 | RAG 检索 | ES 关键词（IK 分词）+ 向量 kNN 双路 → RRF 融合 → rerank 精排 |
 | AI 问答 | Agentic RAG：意图分类 → 检索 → 评估 → 改写重查 → 必要时联网 |
 | 流式输出 | `/ai/chat/stream` SSE 逐块推送，带思考过程与引用来源 |
@@ -102,7 +105,7 @@
 | **Elasticsearch** | `kh_chunk`（分块 + 向量）、`kh_document`（文档级全文） | 中文分词（IK）+ kNN 向量检索 |
 | **Neo4j** | 文档 / 块 / 实体节点与关系 | 「实体 A 与实体 B 什么关系」这类多跳问题 |
 | **Redis** | 验证码、激活 token、对话短期记忆热窗口 | 短 TTL 的一次性数据与高频读写 |
-| **RustFS (S3)** | PDF 抽取的图片、原文件 | 二进制对象不适合塞进数据库 |
+| **RustFS (S3)** | MinerU 解析结果里的图片（`document-images` 前缀）、原文件 | 二进制对象不适合塞进数据库 |
 | **RabbitMQ** | 发布后的三条索引流水线消息 | 建索引耗时长（embedding + LLM 抽取），必须异步 |
 
 > Postgres 与 Mongo 是**两个独立库，没有跨库事务**。因此写正文采用「先写 Mongo → 再写 Postgres → 失败则补偿删除 Mongo」（见 `src/document/document.service.ts`）。
@@ -119,7 +122,7 @@
 | 缓存 / 消息 | `ioredis` / `amqplib` + `amqp-connection-manager` |
 | AI | LangChain（`@langchain/core`）+ `createAgent` + Vercel AI SDK 桥接 |
 | 鉴权 | `@nestjs/jwt` + `passport-jwt` + `bcryptjs` |
-| 文件解析 | `pdf-parse` / `mammoth` / `exceljs` / `jszip` / `officeparser` / `turndown` |
+| 文件解析 | MinerU 精准解析（`/api/v4/file-urls/batch` + 轮询）+ `jszip` 解包；仓库仍保留 `pdf-parse` / `mammoth` / `exceljs` / `officeparser` / `turndown` 的本地解析器实现 |
 | 校验 | `class-validator` + `class-transformer` + `zod`（LLM 结构化输出） |
 | ID 生成 | `snowflake-id`（全表 BIGINT 主键统一雪花 ID） |
 
@@ -161,11 +164,14 @@ cp .env.example .env
 
 ```bash
 OPENAI_API_KEY=sk-xxx        # LLM（KG 抽取 / 问答），不配则抽取报错
+MINERU_API_TOKEN=            # 文件解析，不配则上传 PDF/Office 直接报错
 # EMBEDDING_API_KEY=         # 不配则降级为本地哈希向量，检索质量明显下降
 # RERANK_API_KEY=            # 不配则跳过 rerank，直接返回 RRF 顺序
 # BOCHA_API_KEY=             # 联网搜索，不配则 web_search 返回提示
 # MEM0_API_KEY=              # 长期记忆，不配则整体跳过
 ```
+
+> 解析 PDF / 图片 / Office 时必须同时启用 RustFS（`RUSTFS_ENABLED=true`），否则解析出的图片无处存放会直接报错；TXT / MD 不受影响。
 
 ### 3.4 启动应用
 
@@ -200,7 +206,8 @@ curl -X POST http://localhost:3000/auth/login \
 `init.sql` **只在数据卷第一次创建时执行**。已跑过 `docker compose up` 后改表需手动执行：
 
 ```bash
-docker exec -i knowledge_hub_postgres psql -U user -d knowledge_hub < init-scripts/postgresql/init.sql
+# 老库升级（保留数据）：补齐分类/互动/分享/版本/通知 7 张表与相应权限码，幂等可重复执行
+docker exec -i knowledge_hub_postgres psql -U user -d knowledge_hub < init-scripts/postgresql/migrate-social-notification.sql
 
 # 或彻底重建（会删掉数据）
 docker compose down && rm -rf volumes/postgres && docker compose up -d
@@ -213,13 +220,13 @@ docker compose down && rm -rf volumes/postgres && docker compose up -d
 ```
 knowledge-hub-backend/
 ├── elasticsearch/               # ES 自定义镜像（内置 IK 分词器）
-├── init-scripts/postgresql/     # 建表 + 种子数据（12 张表）
-├── test-files/                  # 解析测试语料（PDF/DOCX/XLSX/PPTX）+ RAG 评测集
+├── init-scripts/postgresql/     # 建表 + 种子数据（19 张表）；migrate-social-notification.sql 给老库补新表
+├── test-files/                  # 解析测试语料（文本版/扫描版 PDF、DOCX/XLSX/PPTX）+ RAG 评测集
 ├── docker-compose.yml           # 全部基础设施编排
 ├── curl-*.md                    # 各模块手工验证脚本（见第九节）
 └── src/
     ├── main.ts                  # 启动引导：CORS + ValidationPipe + 启动/关闭 Langfuse tracing
-    ├── app.module.ts            # 根模块：装配 12 个 TypeORM 实体与所有业务模块
+    ├── app.module.ts            # 根模块：装配 19 个 TypeORM 实体与所有业务模块
     │
     ├── auth/                    # 认证与授权
     │   ├── auth.controller.ts   #   注册 / 登录 / 刷新 / 登出 / me
@@ -246,9 +253,22 @@ knowledge-hub-backend/
     │   ├── document-review.service.ts # 提交审核 / 通过 / 驳回 / 待办列表
     │   ├── document-status.ts         # 状态机与流转规则（纯函数，好测）
     │   ├── document-access.ts         # ★ 可见性规则 + ES/Neo4j 条件构造器
-    │   ├── entities/                  # kh_document / kh_document_review
+    │   ├── document-engagement.controller.ts # 点赞/收藏/评论/分享/版本（含 /favorites）
+    │   ├── document-social.service.ts # 点赞、收藏、评论、收藏列表
+    │   ├── document-share.service.ts  # 分享链接创建/校验/访问（对外 /shares/:code）
+    │   ├── document-version.service.ts# 正文版本快照与回滚
+    │   ├── share.controller.ts        # 公开分享访问（@Public）
+    │   ├── category.controller.ts     # 分类树与维护
+    │   ├── category.service.ts        # 分类 CRUD、启用校验、id → 名称
+    │   ├── entities/                  # kh_document / review / category / comment
+    │   │                              # / like / favorite / share / version
     │   ├── schemas/                   # Mongo 正文 schema
     │   └── parser/                    # 文件 → Markdown（按扩展名分发）
+    │
+    ├── notification/            # 站内通知
+    │   ├── notification.controller.ts # 列表 / 未读数 / 已读 / 全部已读 / 广播
+    │   ├── notification.service.ts    # 写入通知（点赞、评论、系统广播）
+    │   └── notification.entity.ts     # kh_notification
     │
     ├── pipeline/                # 索引构建管线
     │   ├── pipeline.orchestrator.ts   # ★ MQ 处理入口：加载文档 → 调索引服务
@@ -439,6 +459,8 @@ createAgent({ model, tools, systemPrompt, middleware })
 
 角色只有三个：`ROLE_ADMIN` / `ROLE_REVIEWER` / `ROLE_USER`。权限码分三级（菜单 / 按钮 / 接口），如 `document:list`、`document:create`、`system:user`、`system:permission:edit`。
 
+文档互动相关的几个新权限码：`document:category`（分类维护）、`document:category:query`（分类查询，有 `document:list` 也可读树）、`document:version`（版本列表与回滚）。分类与版本接口用 `@RequirePermission` 传多个码时是 **OR** 关系，即「有任一码即可」。
+
 **数据可见性**是本项目较有含金量的一块：规则只写一次（`src/document/document-access.ts`），再**下推到三个存储各自的查询语句**：
 
 ```
@@ -459,16 +481,37 @@ createAgent({ model, tools, systemPrompt, middleware })
 
 ### 5.7 文件解析与对象存储
 
-上传接口用 `FileInterceptor` 接收（限 50MB），`src/document/parser/` 按扩展名分发：
+上传接口用 `FileInterceptor` 接收（限 200MB，与 MinerU 单文件上限一致），`src/document/parser/file-parser.service.ts` 按扩展名分流：
 
 | 类型 | 处理方式 |
 |---|---|
-| PDF | 文本抽取；图片单独抽出上传 RustFS（`pdf-images` 前缀），正文里替换为图片引用 |
-| DOCX | `mammoth` 转 HTML → `turndown` 转 Markdown |
-| XLSX | `exceljs` 逐 Sheet 转 Markdown 表格 |
-| PPTX | 解析每页文本 |
+| PDF / 图片（png/jpg/jp2/webp/gif/bmp）/ DOC(X) / PPT(X) / XLS(X) | 走 MinerU 精准解析（`mineru.parser.ts`） |
+| TXT / MD | 本地按 UTF-8 直读（`plain-text.parser.ts`） |
 
-解析结果是 Markdown，写入 Mongo；同时把标题、分类、团队、是否公开等元数据写入 Postgres。
+MinerU 链路（`src/document/parser/mineru.parser.ts`）四步：
+
+```
+POST /api/v4/file-urls/batch          申请上传链接（带 model_version / language / 公式 / 表格开关）
+        │  PUT 到签名 URL（不能带 Content-Type，否则签名链接可能被拒）
+        ▼
+GET /api/v4/extract-results/batch/:batchId   轮询 state（waiting → running → done / failed）
+        │  done 时取 full_zip_url
+        ▼
+下载 zip → jszip 取 full.md → images/ 逐张上传 RustFS（document-images 前缀）
+        │  按相对路径把 Markdown 里的 images/xxx 替换成对象存储地址
+        ▼
+cleanMarkdown() 清洗后写入 Mongo
+```
+
+几个关键点：
+
+- **必须配 `MINERU_API_TOKEN`**，否则上传解析直接抛 `未配置 MINERU_API_TOKEN，无法解析文件`；token 在 https://mineru.net/apiManage/token 创建。
+- **有图就必须启用 RustFS**：解析结果含图片而 `RUSTFS_ENABLED=false` 时会直接报错，而不是返回一批失效的相对路径。
+- **图片与扫描件自动 OCR**：图片类扩展名会带 `is_ocr: true`，扫描版 PDF 也能抽出文字。
+- **轮询参数可调**：`MINERU_POLL_INTERVAL_MS`（默认 3000）、`MINERU_POLL_TIMEOUT_MS`（默认 600000 即 10 分钟）；轮询请求 30s 超时、上传与下载各 120s 超时，超时统一抛 `BadRequestException`。
+- 格式不支持、内容为空、MinerU 返回 `failed` 都会转成 `BadRequestException`，前端能直接展示可读的错误文案。
+
+解析结果是 Markdown，写入 Mongo；同时把标题、分类、团队、是否公开等元数据写入 Postgres。原有的本地解析器（`parsers/pdf.parser.ts`、`docx.parser.ts`、`pptx.parser.ts`、`xlsx.parser.ts`）已不再被 `file-parser.service.ts` 引用，保留作为离线/降级参考实现。
 
 ### 5.8 可观测性（Langfuse tracing）
 
@@ -578,7 +621,7 @@ EVAL_CONCURRENCY=4 pnpm eval:rag               # 并发（默认 2）
 | 方法 | 路径 | 权限 | 说明 |
 |---|---|---|---|
 | POST | `/documents` | `document:create` | 新建文档（纯元数据） |
-| POST | `/documents/upload/parse` | `document:create` | 上传文件并解析（multipart，≤50MB） |
+| POST | `/documents/upload/parse` | `document:create` | 上传文件并解析（multipart，≤200MB，MinerU 全格式） |
 | GET | `/documents` | `document:list` | 分页列表（可见性过滤） |
 | GET | `/documents/:id` | `document:list` | 详情（可见性过滤） |
 | PATCH | `/documents/:id` | `document:edit` | 改元数据（校验 canWrite） |
@@ -593,6 +636,30 @@ EVAL_CONCURRENCY=4 pnpm eval:rag               # 并发（默认 2）
 | GET | `/documents/reviews/tasks/pending-count` | REVIEWER / ADMIN + `document:review` | 待办数量角标 |
 | POST | `/documents/reviews/tasks/:taskId/approve` | REVIEWER / ADMIN + `document:review` | 审核通过 → 发布 + 建索引 |
 | POST | `/documents/reviews/tasks/:taskId/reject` | REVIEWER / ADMIN + `document:review` | 驳回 → 回到草稿 |
+| POST | `/documents/:id/likes` | `document:list` | 点赞 / 取消点赞，返回最新计数 |
+| POST | `/documents/:id/favorites` | `document:list` | 收藏 / 取消收藏 |
+| GET / POST | `/documents/:id/comments` | `document:list` | 评论列表（两级）/ 发表评论 |
+| DELETE | `/documents/:id/comments/:commentId` | `document:list` | 删评论（本人或管理员） |
+| GET / POST | `/documents/:id/shares` | `document:list` | 分享链接列表 / 创建（可选密码、有效期） |
+| DELETE | `/documents/:id/shares/:shareId` | `document:list` | 关闭分享链接 |
+| GET | `/documents/:id/versions` | `document:list` + `document:version` | 版本列表 |
+| POST | `/documents/:id/versions/:versionId/restore` | `document:edit` + `document:version` | 回滚到该版本（生成新版本） |
+
+> `GET /documents` 支持 `mine=1`，只返回当前用户自己的文档（含草稿）；列表与详情都会带上 `categoryName`。
+
+### 分类 / 收藏 / 公开分享 / 通知
+
+| 方法 | 路径 | 权限 | 说明 |
+|---|---|---|---|
+| GET | `/categories/tree` | `document:list` 或 `document:category:query` | 分类树（列表筛选与下拉用） |
+| POST / PUT / DELETE | `/categories`、`/categories/:id` | `document:category` | 分类维护（逻辑删除） |
+| GET | `/favorites` | `document:list` | 我的收藏（分页） |
+| GET | `/shares/:code` | 公开 | 分享预览：是否有效、是否需要密码 |
+| POST | `/shares/:code/access` | 公开 | 校验密码并返回正文 |
+| GET | `/notifications` | 登录 | 我的通知（分页） |
+| GET | `/notifications/unread-count` | 登录 | 未读数（铃铛轮询） |
+| POST | `/notifications/:id/read`、`/notifications/read-all` | 登录 | 标记单条 / 全部已读 |
+| POST | `/notifications/broadcast` | ADMIN | 发系统通知（指定用户，留空则全员） |
 
 ### 用户 / 角色 / 权限 / 团队
 
@@ -631,7 +698,7 @@ EVAL_CONCURRENCY=4 pnpm eval:rag               # 并发（默认 2）
 
 ## 七、数据模型
 
-### PostgreSQL（12 张表，见 `init-scripts/postgresql/init.sql`）
+### PostgreSQL（19 张表，见 `init-scripts/postgresql/init.sql`）
 
 | 表 | 用途 | 关键字段 |
 |---|---|---|
@@ -647,8 +714,15 @@ EVAL_CONCURRENCY=4 pnpm eval:rag               # 并发（默认 2）
 | `kh_team_member` | 团队成员 | team_id、user_id |
 | `kh_ai_session` | AI 会话 | id、user_id、title、created_at |
 | `kh_ai_message` | AI 消息 | id、session_id、role、content、sources（JSONB） |
+| `kh_category` | 文档分类（树） | id、name、parent_id、sort、description、deleted |
+| `kh_comment` | 评论（两级） | id、document_id、user_id、user_name、content、parent_id、deleted |
+| `kh_document_like` | 点赞 | id、document_id、user_id（唯一约束） |
+| `kh_document_favorite` | 收藏 | id、document_id、user_id（唯一约束） |
+| `kh_document_share` | 分享链接 | id、document_id、token、created_by、expire_at、revoked、require_password、password_hash |
+| `kh_document_version` | 正文版本快照 | id、document_id、version、title、content、summary、created_by |
+| `kh_notification` | 站内通知 | id、user_id、type（like/comment/system）、title、content、document_id、sender_id、is_read |
 
-种子数据包含：三个角色、三个账号（admin / reviewer / user，密码 `123456`）、完整权限树、示例团队与成员。
+种子数据包含：三个角色、三个账号（admin / reviewer / user，密码 `123456`）、完整权限树（含 `document:category`、`document:category:query`、`document:version`）、示例团队与成员、三个初始分类。
 
 ### MongoDB
 
@@ -698,7 +772,8 @@ EVAL_CONCURRENCY=4 pnpm eval:rag               # 并发（默认 2）
 | ES | `ELASTICSEARCH_NODE`、`ELASTICSEARCH_ENABLED` | 关闭即降级为「无全文/向量检索」 |
 | Neo4j | `NEO4J_URI/USER/PASSWORD`、`NEO4J_ENABLED` | 关闭即跳过图谱 |
 | MQ | `RABBITMQ_URL`、`RABBITMQ_ENABLED` | 关闭则不建索引（需手工触发） |
-| 对象存储 | `RUSTFS_ENABLED`、`RUSTFS_ENDPOINT/ACCESS_KEY/SECRET_KEY/BUCKET` | PDF 抽图与原文件 |
+| 对象存储 | `RUSTFS_ENABLED`、`RUSTFS_ENDPOINT/ACCESS_KEY/SECRET_KEY/BUCKET` | 解析出的图片（`document-images`）与原文件；解析含图时**必须启用** |
+| 文件解析 · MinerU | `MINERU_API_TOKEN`（必填）、`MINERU_API_BASE=https://mineru.net`、`MINERU_MODEL_VERSION=vlm`、`MINERU_LANGUAGE=ch`、`MINERU_ENABLE_FORMULA/ENABLE_TABLE=true`、`MINERU_POLL_INTERVAL_MS=3000`、`MINERU_POLL_TIMEOUT_MS=600000` | PDF / 图片 / Office → Markdown 的精准解析 |
 | JWT | `JWT_SECRET`、`JWT_ACCESS_EXPIRES=2h`、`JWT_REFRESH_EXPIRES=7d` | 双 token（access 与 refresh 同一密钥签发） |
 | 邮箱 | `REQUIRE_EMAIL_VERIFICATION`、`MAIL_*`、`APP_PUBLIC_URL` | 是否强制激活 + SMTP + 邮件链接地址 |
 | 审核 | `DOCUMENT_REQUIRE_APPROVAL` | 是否走审核流程（默认 true） |
@@ -732,7 +807,7 @@ EVAL_CONCURRENCY=4 pnpm eval:rag               # 并发（默认 2）
 | `agentic-rag.md` | Agentic RAG 场景化用例（含预期行为） |
 | `chat-memory.md` | 会话记忆与短期窗口行为 |
 
-`test-files/` 提供测试语料（多份 PDF、DOCX、XLSX、PPTX）与 `rag-*.json` 评测集。
+`test-files/` 提供测试语料（多份文本版 PDF、扫描版 PDF（`scanned-1page.pdf`）、DOCX、XLSX、PPTX）与 `rag-*.json` 评测集；扫描件与图片适合验证 MinerU 的 OCR 与版式还原。
 
 ### 评测跑分（不用起 HTTP 服务）
 
@@ -754,6 +829,7 @@ EVAL_FILTER=kb-hit pnpm eval:rag     # 按 suite 过滤；也可直接传单条 
 3. **MQ 无重试与死信队列**：消费失败只记日志，需要重跑时得手工重新投递消息。
 4. **图谱抽取依赖 LLM**：未配 `OPENAI_API_KEY` 时 KG 管线会失败（其它功能不受影响）。
 5. **评测要花真实模型额度**：全量 9 条金标会跑 9 次完整 Agent 链路，其中 `refusal_quality`、`completeness`、`groundedness` 还要额外调 LLM judge；judge 与答题同源模型，存在自评偏置。
+6. **解析强依赖外部服务**：文件解析要连 MinerU 公网接口并占用其额度，没有 token 或断网时上传直接失败；解析是同步等待（轮询最长 10 分钟），大文件会让请求长时间挂起，后续可考虑改成 MQ 异步解析。
 
 **可以改进的点**
 
