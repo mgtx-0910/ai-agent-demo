@@ -10,7 +10,7 @@
 >
 > [📖 大模型基础：Transformer 图解](docs/大模型基础-Transformer图解.md) — 24 张原理图串讲：token → 注意力 → 自回归 → KV 缓存 → 训练 vs 推理 → 采样
 >
-> [🧭 Knowledge Hub 导学（HTML）](docs/html/knowledge-hub-guide.html) — 前后端双项目从零上手：两个项目是什么 · 架构与存储分工 · 技术栈 · 7 阶段改代码路线
+> [🧭 Knowledge Hub 导学（HTML）](docs/html/knowledge-hub-guide.html) — 前后端双项目从零上手：两个项目是什么 · 架构与存储分工 · 技术栈 · 8 阶段改代码路线
 >
 > [❓ 面试题收集（HTML）](docs/html/interview-questions.html) — RAG / 检索 / 评测相关问答，支持搜索与按分类、难度、掌握状态筛选
 >
@@ -27,10 +27,10 @@
 │   ├── LangChain-AI-Agent-第三阶段学习总结.md
 │   ├── 大模型基础-Transformer图解.md      # 📖 原理图解笔记（24 张图）
 │   ├── agent-imgs/              # 🖼️ 图解配图（被上述 md / html 引用）
-│   │   ├── knowledge-hub-img/            # 知识库相关图解（41 张）
+│   │   ├── knowledge-hub-img/            # 知识库相关图解（43 张）
 │   │   └── transformer-img/              # Transformer 原理图（24 张）
 │   ├── html/                    # 🌐 HTML 单页文档（浏览器直接打开）
-│   │   ├── knowledge-hub-guide.html      # 🧭 前后端双项目导学（7 阶段上手路线）
+│   │   ├── knowledge-hub-guide.html      # 🧭 前后端双项目导学（8 阶段上手路线）
 │   │   ├── interview-questions.html      # ❓ 面试题收集（搜索 / 分类 / 难度筛选）
 │   │   └── interview-training.html       # 🎯 面试强化训练（前端补后端 · 14 天计划）
 │   └── js/                      # 上述页面的数据与应用脚本
@@ -62,8 +62,8 @@
 ├── mem0-test/                   # Mem0 记忆平台
 │
 ├── 📦 第三阶段 · 综合实战（2026-09-16 起）
-├── knowledge-hub-backend/       # 🏢 企业知识库后端（文档 → 审核 → 检索 → RAG 问答）
-├── knowledge-hub-frontend/      # 🖥️ 企业知识库前端（React + Ant Design 管理台）
+├── knowledge-hub-backend/       # 🏢 企业知识库后端（文档 → 审核 → 互动 → 检索 → RAG 问答）
+├── knowledge-hub-frontend/      # 🖥️ 企业知识库前端（React + Ant Design 管理台，含互动与通知）
 ```
 
 ## 第一阶段项目介绍（2026-06-27 起 · 入门 Agent）
@@ -307,6 +307,8 @@ Mem0 是"记忆即平台"，加记忆只需调 API，抽取 / 去重 / 更新由
 - **Agentic RAG** — `createAgent` + 四个工具（知识库检索 / 查询改写 / 图谱检索 / 联网搜索）+ 摘要与调用次数中间件，SSE 流式返回思考过程与引用
 - **三层记忆** — Postgres 会话历史 + Redis 短期热窗口（miss 回填）+ Mem0 长期记忆，并坚持"记忆不是知识库"
 - **发布审核** — 可开关的审核流程 + 状态机（草稿 / 待审核 / 已发布 / 已归档），流转规则抽成纯函数
+- **文档互动与版本** — 点赞 / 收藏 / 评论（两级）/ 分享链接（可选密码与有效期，`/shares/:code` 免登录访问）；正文每次变更留版本快照，可回滚
+- **分类与站内通知** — 分类树维护（文档只能挂启用的分类）；点赞与评论写入站内通知，带未读数、已读标记与管理员广播
 - **RBAC 权限** — 用户 / 角色 / 权限六表，角色权限与直授权限取并集，三个全局守卫（登录 → 角色 → 权限码）串行把关
 - **数据可见性下推** — 同一套规则（管理员/审核员 OR 作者 OR 已发布且公开或同团队）同时下推到 Postgres 查询、ES filter、Neo4j Cypher
 - **多存储分工** — Postgres 存元数据、Mongo 存正文、ES 做检索、Neo4j 做图谱、Redis 做凭证与热记忆、RustFS 存对象
@@ -314,12 +316,13 @@ Mem0 是"记忆即平台"，加记忆只需调 API，抽取 / 去重 / 更新由
 
 ### 18. knowledge-hub-frontend — 企业知识库前端
 
-后端能力的 React 管理台，把文档、检索、问答、图谱、RBAC 五块界面接到真实接口上。完整说明见 [knowledge-hub-frontend/README.md](knowledge-hub-frontend/README.md)。
+后端能力的 React 管理台，把文档、互动、分类、通知、检索、问答、图谱、RBAC 这些界面接到真实接口上。完整说明见 [knowledge-hub-frontend/README.md](knowledge-hub-frontend/README.md)。
 
 - **直连流式问答** — 用 AI SDK v7 的 `useChat` + `DefaultChatTransport` 接入 `/ai/chat/stream`，边生成边渲染，切页面不中断同一条流
 - **推理轨迹可见** — 后端的意图分类、召回命中、图谱子图、切题评估逐条渲染成卡片；引用只保留正文里真正标了 `[n]` 的
 - **权限驱动的界面** — `can()` / `isAdmin()` / `isReviewer()` 同时决定顶栏、侧边栏与路由守卫（真正的拦截仍在后端）
 - **401 自动续期** — 统一请求层收到 401 后静默刷新 token 并重放原请求，并发请求只触发一次刷新
+- **互动与通知** — 详情页点赞 / 收藏 / 评论、版本历史与收藏夹；`/share/:code` 免登录访问分享链接；顶栏铃铛轮询未读数
 - **图谱可视化** — ECharts 力导向图，图谱页与问答内的检索轨迹共用同一组件
 
 ---

@@ -226,14 +226,14 @@ footer{max-width:1400px;margin:0 auto;padding:24px 20px 60px;color:var(--muted);
     <p class="lead">
       一套「企业知识库」的完整实现：把散落在 PDF / Word / Excel / PPT 里的制度文档收进来，解析成 Markdown、按权限发布，
       再同时建立<strong>全文索引 / 向量索引 / 知识图谱</strong>三套检索能力，最后用 Agentic RAG 提供「问一句、给答案、附出处」的问答。
-      后端 240+ 个 TS 文件，前端 React 19 + Ant Design 6。
+      前端 React 19 + Ant Design 6。
     </p>
 
     <div class="grid g2" style="margin-top:18px">
       <div class="card">
         <h3 style="margin-top:0">knowledge-hub-backend</h3>
         <p style="font-size:13.6px;color:var(--muted);margin:6px 0 12px">
-          NestJS 11 单体服务，<strong>无全局路由前缀</strong>，端口 <code>3000</code>。承载全部业务：认证权限、文档域、索引管线、混合检索、RAG 问答、知识图谱，以及 <strong>Langfuse tracing 与 RAG 评测</strong>。
+          NestJS 11 单体服务，<strong>无全局路由前缀</strong>，端口 <code>3000</code>。承载全部业务：认证权限、文档域、文档互动与分类、站内通知、索引管线、混合检索、RAG 问答、知识图谱，以及 <strong>Langfuse tracing 与 RAG 评测</strong>。
         </p>
         <div style="display:flex;gap:6px;flex-wrap:wrap">
           <span class="pill blue">NestJS 11</span><span class="pill blue">TypeORM + Postgres</span>
@@ -299,7 +299,7 @@ npm run dev               # http://localhost:5173
       <table>
         <thead><tr><th>组件</th><th>存什么</th><th>为什么是它</th></tr></thead>
         <tbody>
-          <tr><td><strong>PostgreSQL</strong></td><td>文档元数据、审核流水、用户/角色/权限、团队、AI 会话（12 张表）</td><td>需要事务、外键、条件分页的结构化数据</td></tr>
+          <tr><td><strong>PostgreSQL</strong></td><td>文档元数据、审核流水、分类 / 互动 / 通知、用户/角色/权限、团队、AI 会话（19 张表）</td><td>需要事务、外键、条件分页的结构化数据</td></tr>
           <tr><td><strong>MongoDB</strong></td><td>文档 Markdown 正文（<code>document_content</code>）</td><td>长文本、无需 join、按 document_id 单点读写</td></tr>
           <tr><td><strong>Elasticsearch</strong></td><td><code>kh_chunk</code>（分块 + 1024 维向量）、<code>kh_document</code>（文档级全文）</td><td>中文 IK 分词 + kNN 向量检索</td></tr>
           <tr><td><strong>Neo4j</strong></td><td>文档 / 块 / 实体节点与关系</td><td>「实体 A 与实体 B 什么关系」这类多跳问题</td></tr>
@@ -364,7 +364,7 @@ npm run dev               # http://localhost:5173
       <div class="card"><h3 style="margin:0;font-size:13.5px">AI</h3><p style="font-size:13px;color:var(--muted);margin:6px 0 0">LangChain <code>createAgent</code> + Vercel AI SDK 桥接</p></div>
       <div class="card"><h3 style="margin:0;font-size:13.5px">观测 / 评测</h3><p style="font-size:13px;color:var(--muted);margin:6px 0 0">Langfuse + OpenTelemetry（全链路 trace） · 9 条金标 + 9 个评测器（<code>pnpm eval:rag</code>）</p></div>
       <div class="card"><h3 style="margin:0;font-size:13.5px">鉴权</h3><p style="font-size:13px;color:var(--muted);margin:6px 0 0">@nestjs/jwt + passport-jwt + bcryptjs</p></div>
-      <div class="card"><h3 style="margin:0;font-size:13.5px">文件解析</h3><p style="font-size:13px;color:var(--muted);margin:6px 0 0">pdf-parse / mammoth / exceljs / officeparser / turndown</p></div>
+      <div class="card"><h3 style="margin:0;font-size:13.5px">文件解析</h3><p style="font-size:13px;color:var(--muted);margin:6px 0 0">MinerU 精准解析（视觉语言模型，远程 API）+ JSZip；pdf-parse / mammoth / exceljs / turndown 为第一代本地解析器</p></div>
       <div class="card"><h3 style="margin:0;font-size:13.5px">校验</h3><p style="font-size:13px;color:var(--muted);margin:6px 0 0">class-validator + class-transformer + zod</p></div>
       <div class="card"><h3 style="margin:0;font-size:13.5px">ID 生成</h3><p style="font-size:13px;color:var(--muted);margin:6px 0 0">snowflake-id（全表 BIGINT 主键）</p></div>
       <div class="card"><h3 style="margin:0;font-size:13.5px">前端框架</h3><p style="font-size:13px;color:var(--muted);margin:6px 0 0">React 19 + Vite 8 + react-router 7</p></div>
@@ -413,7 +413,7 @@ npm run dev               # http://localhost:5173
         <li><span class="dot"></span><div><code>knowledge-hub-backend/README.md</code><span class="why">先通读一遍全文，这是全项目最完整的说明书</span></div></li>
         <li><span class="dot"></span><div><code>knowledge-hub-backend/docker-compose.yml</code><span class="why">7 个基础设施的编排与端口</span></div></li>
         <li><span class="dot"></span><div><code>knowledge-hub-backend/src/main.ts</code><span class="why">CORS + 全局 ValidationPipe（注意没有 setGlobalPrefix）</span></div></li>
-        <li><span class="dot"></span><div><code>knowledge-hub-backend/src/app.module.ts</code><span class="why">12 个实体 + 全部业务模块的装配总览</span></div></li>
+        <li><span class="dot"></span><div><code>knowledge-hub-backend/src/app.module.ts</code><span class="why">19 个实体 + 全部业务模块的装配总览</span></div></li>
         <li><span class="dot"></span><div><code>knowledge-hub-frontend/vite.config.ts</code><span class="why">/api 代理与 rewrite 规则</span></div></li>
         <li><span class="dot"></span><div><code>knowledge-hub-frontend/src/api/client.ts</code><span class="why">前端唯一的请求出口</span></div></li>
       </ul>
@@ -555,8 +555,9 @@ DOCUMENT_REQUIRE_APPROVAL  是否走审核（默认 true）</code></pre>
         <li class="star"><span class="dot"></span><div><code>src/document/document-status.ts</code> ★<span class="why">状态机纯函数，最容易读懂也最适合补单测</span></div></li>
         <li><span class="dot"></span><div><code>src/document/document.service.ts</code><span class="why">跨库写入 + 失败补偿（先写 Mongo 再写 PG）</span></div></li>
         <li><span class="dot"></span><div><code>src/document/document-review.service.ts</code><span class="why">提交审核 / 通过 / 驳回 / 待办列表</span></div></li>
-        <li><span class="dot"></span><div><code>src/document/entities/</code> / <code>schemas/</code> / <code>parser/</code><span class="why">实体、Mongo 正文 schema、按扩展名分发的解析器</span></div></li>
-        <li><span class="dot"></span><div><code>init-scripts/postgresql/init.sql</code><span class="why">12 张建表语句 + 种子数据，表结构全靠它</span></div></li>
+        <li><span class="dot"></span><div><code>src/document/entities/</code> / <code>schemas/</code> / <code>parser/</code><span class="why">实体、Mongo 正文 schema、MinerU 解析封装（<code>mineru.parser.ts</code>）与第一代本地解析器</span></div></li>
+        <li><span class="dot"></span><div><code>src/document/document-engagement.controller.ts</code> / <code>document-social.service.ts</code><span class="why">点赞、收藏、评论、收藏列表；版本快照与分享链路另见 <code>document-version.service.ts</code> / <code>document-share.service.ts</code></span></div></li>
+        <li><span class="dot"></span><div><code>init-scripts/postgresql/init.sql</code><span class="why">19 张建表语句 + 种子数据，表结构全靠它（老库升级另见 <code>migrate-social-notification.sql</code>）</span></div></li>
         <li><span class="dot"></span><div>前端 <code>DocumentsPage</code> / <code>DocumentEditPage</code> / <code>DocumentDetailPage</code> / <code>pages/admin/ReviewsPage</code><span class="why">文档列表、编辑、详情、审核工作台</span></div></li>
       </ul>
       <h3>Apipost 验证 · 计划「P2 · 文档状态机主链路」</h3>
@@ -564,6 +565,7 @@ DOCUMENT_REQUIRE_APPROVAL  是否走审核（默认 true）</code></pre>
         <li><code>POST /documents/upload/parse</code>：form-data 传 <code>file</code>（用 <code>test-files/</code> 里的 PDF），拿到解析后的 <code>documentId</code>。</li>
         <li>走一遍状态流转：<code>PUT /documents/:id/publish</code> →（审核开启时）<code>POST /:id/reviews/submit</code> → <code>GET /documents/reviews/tasks</code> → <code>POST /documents/reviews/tasks/:taskId/approve</code>。</li>
         <li>用 <code>user</code> 账号建一篇「仅团队可见」的文档，再用另一个账号调 <code>GET /documents/:id</code>，验证可见性过滤（403 或 404）。</li>
+        <li>顺手走一遍互动链路：<code>POST /documents/:id/likes</code> → <code>POST /documents/:id/comments</code>，再登录作者账号看 <code>GET /notifications/unread-count</code> 是否 +1，最后 <code>POST /documents/:id/shares</code> 建一条带密码的分享链接、用 <code>POST /shares/:code/access</code> 免登录校验密码。</li>
         <li>建议用 Apipost 的<strong>执行流</strong>把上面这串串成一个可一键重跑的链路。</li>
       </ol>
       <div class="note"><b>练习：</b>为 <code>document-status.ts</code> 写第一个 Jest 单测（项目目前 0 测试，这是最值得补的一处）。</div>
@@ -1006,7 +1008,7 @@ createAgent({ model, tools, systemPrompt, middleware })
     <p class="lead">建议把这条链路用 Apipost 亲手跑通一遍，跑通了整个项目就通了。</p>
     <div class="flow">
       <div class="flow-row">
-        <div class="flow-box"><b>① 上传解析</b><span>POST /documents/upload/parse<br>PDF/Word/Excel/PPT → Markdown</span></div>
+        <div class="flow-box"><b>① 上传解析</b><span>POST /documents/upload/parse<br>PDF / 图片 / Office → MinerU → Markdown</span></div>
         <div class="flow-box"><b>② 落库</b><span>Mongo 存正文 + PG 存元数据<br>状态 = 草稿</span></div>
       </div>
       <div class="flow-arrow">↓</div>

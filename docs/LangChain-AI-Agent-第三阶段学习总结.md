@@ -15,7 +15,7 @@
 
 | 序号 | 子项目 | 首次提交 | 主题 |
 |------|--------|----------|------|
-| ① | `knowledge-hub-backend` | 2026-09-16 | 文档 → 审核 → 三套索引 → 混合检索 → Agentic RAG + RBAC |
+| ① | `knowledge-hub-backend` | 2026-09-16 | 文档 → 审核 → 互动 → 三套索引 → 混合检索 → Agentic RAG + RBAC |
 | ② | `knowledge-hub-frontend` | 2026-10-10 | React 管理台：把后端能力变成可操作的界面 |
 
 > 日期取自仓库中**各子项目目录首次提交**的时间。后端从 2026-09-16 起迭代到 2026-10-10（8 次提交，含上传解析、账号权限体系、AI 问答三个阶段）；前端于 2026-10-10 纳入仓库。第二阶段最后一个项目 `mem0-test` 停在 09-08。
@@ -27,9 +27,10 @@
 │    文档管理 · 审核状态机 · 异步三路索引 · 混合检索                  │
 │    Agentic RAG · 三层记忆 · RBAC + 可见性下推 · 文件解析            │
 │    Langfuse tracing · 9 条金标 RAG 评测                            │
+│    文档互动 · 分类与版本 · 站内通知                                │
 ├──────────────────────────────────────────────────────────────────┤
 │  knowledge-hub-frontend       10-10                                │
-│    登录会话 · 文档生命周期 · 全文检索 · 流式问答 · 图谱 · 系统管理    │
+│    登录会话 · 文档生命周期 · 互动与通知 · 检索 · 问答 · 图谱 · 管理   │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
@@ -52,7 +53,7 @@
 | **Elasticsearch** | `kh_chunk`（分块 + 向量）、`kh_document`（文档级全文） | 中文分词（IK）+ kNN 向量检索 |
 | **Neo4j** | 文档 / 块 / 实体节点与关系 | 「实体 A 与实体 B 什么关系」这类多跳问题 |
 | **Redis** | 验证码、激活 token、对话短期热窗口 | 短 TTL 的一次性数据与高频读写 |
-| **RustFS (S3)** | PDF 抽取的图片、原文件 | 二进制对象不适合进数据库 |
+| **RustFS (S3)** | 解析产出的图片、上传的原文件 | 二进制对象不适合进数据库 |
 | **RabbitMQ** | 发布后的三条索引流水线消息 | 建索引耗时长（embedding + LLM 抽取），必须异步 |
 
 其中最有学习价值的一条是：**Postgres 与 Mongo 是两个独立库，没有跨库事务**。于是写正文的落库顺序被设计成「先写 Mongo → 再写 Postgres → 失败则补偿删除 Mongo」（`src/document/document.service.ts`）。这类"最终一致"的取舍，是第一、二阶段在单库里写 CRUD 时不会遇到的。
@@ -290,7 +291,11 @@ createAgent({ model, tools, systemPrompt, middleware })
 
 ![修改密码流程图解](<agent-imgs/knowledge-hub-img/修改密码流程图解.png>)
 
-### 八、文件解析：五种格式 → Markdown
+### 八、文件解析：两代实现，一次升级
+
+这一节保留两代解析。第一代是项目早期的四个本地解析器（代码仍在 `src/document/parser/parsers/`，主链路已不再调用），第二代是现在跑的 MinerU 精准解析。并排放在一起看，比只写「最终方案」更能说明为什么换。
+
+#### 8.1 第一代：五种格式，四个本地解析器
 
 上传接口用 `FileInterceptor` 接收（限 50MB），`src/document/parser/` 按扩展名分发：
 
@@ -301,11 +306,60 @@ createAgent({ model, tools, systemPrompt, middleware })
 | XLSX | `exceljs` 逐 Sheet 转 Markdown 表格 |
 | PPTX | 解析每页文本 |
 
+第一代的问题不是「不能用」，而是上限低：
+
+- PDF 只做文本层抽取，双栏排版会串行、跨页表格会断、公式基本丢失；
+- 扫描版 PDF 与图片没有文本层，抽出来是空字符串，只能报「解析结果为空」；
+- DOCX 经 HTML 中转能保住标题与段落，但表格结构在 `turndown` 那一步已经变形；
+- PPTX 只抠文本框，版式与图片里的信息全部丢弃。
+
+四种格式四套代码，每修一个 corner case 都只对一种格式生效——这是「按格式逐个适配」这条路的天花板。
+
+#### 8.2 第二代：MinerU，一层薄分发 + 一个外部解析服务
+
+现在 `file-parser.service.ts` 只做选路：
+
+| 扩展名 | 处理方式 |
+|---|---|
+| `pdf` / `png` / `jpg` / `jpeg` / `jp2` / `webp` / `gif` / `bmp` / `doc(x)` / `ppt(x)` / `xls(x)` | MinerU 精准解析（`mineru.parser.ts`） |
+| `txt` / `md` | 本地按 UTF-8 直读（`parsePlainText`） |
+
+上传上限同时从 50MB 提到 200MB，与 MinerU 的单文件限制对齐。
+
+交给 MinerU 的不是「抽取文字」，而是「整页转成结构化 Markdown」：请求里带 `model_version: 'vlm'`，页面按图像送进**视觉语言模型**，版式、表格、公式、图内文字一起识别；图片类文件带 `is_ocr: true`，扫描件因此也能出文字；图注与图内文字会随正文进入 `full.md`，图片本身则被裁出来放进 `images/`，由本地转存 RustFS 并改写链接——所以「图里写了什么」同样能被检索到，不再是死数据。
+
+```text
+POST /api/v4/file-urls/batch                  申请上传链接（is_ocr、model_version=vlm、enable_formula、enable_table、language=ch）
+PUT  uploadUrl                                直传文件，刻意不带 Content-Type，否则签名链接会被拒
+GET  /api/v4/extract-results/batch/{batchId}  每 3s 轮询，超时 600s，读 state 与页进度
+GET  full_zip_url                             state=done 后下载结果 zip
+```
+
+拿到 zip 之后才是本地的事：`JSZip` 里找 `full.md`，把 `images/` 下的图片逐张上传 RustFS，再把 Markdown 中的相对路径替换成 RustFS 地址（兼容 `./images/x.png` 与 `images/x.png` 两种写法），最后 `cleanMarkdown` 收尾。
+
+#### 8.3 两代对比
+
+| 维度 | 第一代 · 本地解析 | 第二代 · MinerU |
+|---|---|---|
+| 支持格式 | PDF / DOCX / XLSX / PPTX + txt/md | PDF、图片（png / jpg / jpeg / jp2 / webp / gif / bmp）、doc(x)、ppt(x)、xls(x) + txt/md |
+| 上传上限 | 50MB | 200MB |
+| 解析引擎 | `pdf-parse` / `mammoth` + `turndown` / `exceljs` / 自写 PPTX | 视觉语言模型（`model_version=vlm`） |
+| 扫描件与图片 | 无文本层即失败 | `is_ocr: true`，图片与扫描件都能识别 |
+| 表格 / 公式 | 表格易变形，公式丢失 | `enable_table` / `enable_formula` 开关保留 |
+| 图片处理 | 自己抽图、自己传 RustFS | MinerU 产出 `images/`，本地转存 RustFS 并改写链接 |
+| 调用形态 | 同步、进程内 | 异步外部任务（轮询 3s / 超时 600s） |
+| 失败面 | 解析异常 | 网络、限流、token、超时、外部服务不可用 |
+| 离线可用 | 是 | 否（需要 Token 与公网） |
+
+两句话总结这次升级：第一代赢在「不依赖外部、延迟低」，输在格式覆盖面；第二代把多格式适配整体外包给一个视觉模型，用「异步链路 + 外部依赖」换「扫描件、表格、公式、图片文字都能进来」。复杂度没有消失，只是从「多格式适配」搬到了「外部依赖治理」。
+
 解析结果统一是 Markdown（写 Mongo），元数据（标题、分类、团队、是否公开）写 Postgres。**先把异构文件归一，后面的检索链路才不需要区分来源格式**。
 
 ---
 
 **本节配图**
+
+> PDF / DOCX / PPTX / XLSX 四张画于第一代本地解析时期，保留下来与 8.2 的 MinerU 链路对照看；最后一张是改进后的 MinerU 解析流程。
 
 ![文件上传与解析保存](<agent-imgs/knowledge-hub-img/文件上传与解析保存.png>)
 
@@ -316,6 +370,8 @@ createAgent({ model, tools, systemPrompt, middleware })
 ![PPTX 转 Markdown 流程图](<agent-imgs/knowledge-hub-img/PPTX 转 Markdown 流程图.jpg>)
 
 ![xlsx 转 Markdown 流程图](<agent-imgs/knowledge-hub-img/xlsx 转 Markdown 流程图.jpg>)
+
+![MinerU 解析流程](<agent-imgs/knowledge-hub-img/MinerU解析流程.png>)
 
 ### 九、可观测性与评测：把「感觉变好了」变成数字
 
@@ -529,9 +585,73 @@ POST /ai/chat/stream（AI SDK UI Message Stream 协议）
 
 ---
 
-## 十四、总结
+## 十四、文档互动与站内通知：一条跨前后端的业务闭环
 
-### 14.1 第三阶段究竟交付了什么？
+前面十三节讲的是「知识怎么进来、怎么被找到」。真实系统还有另一半：文档不只是被检索的对象，读者会点赞、收藏、评论，会把链接发给同事，作者需要知道「有人评论了我的文档」。这块代码的技术密度不高，但它是唯一一条把**权限、可见性、通知、公开分享与前端状态**串起来的完整闭环，值得单独看一眼。
+
+### 14.1 七张新表，一个原则
+
+| 表 | 作用 | 关键约束 |
+|---|---|---|
+| `kh_category` | 分类树（`parent_id` 自引用 + `deleted` 逻辑删除） | 文档只能挂到未删除的分类 |
+| `kh_comment` | 评论（两级，`parent_id` 指向父评论） | 不做无限嵌套 |
+| `kh_document_like` / `kh_document_favorite` | 点赞 / 收藏 | `UNIQUE (document_id, user_id)` |
+| `kh_document_share` | 分享链接 | `token` 唯一，`expire_at` / `revoked` / `password_hash` 决定是否可用 |
+| `kh_document_version` | 正文快照 | `UNIQUE (document_id, version)`，回滚是追加新版本而非覆盖 |
+| `kh_notification` | 站内通知 | `type` = like / comment / system，`is_read` 决定未读数 |
+
+那条 `UNIQUE` 不是洁癖：点赞是并发高频操作，有了唯一约束就能靠 `ON CONFLICT DO NOTHING` 直接写，不必「先查再写」——后者才是并发下重复点赞的真正来源。
+
+### 14.2 一条评论要经过哪些人
+
+```
+POST /documents/:id/comments
+  ├─ RequirePermission('document:list')   权限在入口就把住
+  ├─ 可见性校验：复用 document-access 的规则，不另写一套
+  ├─ 写 kh_comment（user_name 冗余一份，列表不用 join 用户表）
+  └─ 通知作者：写 kh_notification（作者本人操作则跳过）
+```
+
+三个取舍：
+
+1. **自己点赞 / 评论自己的文档不发通知**（`doc.authorId === actor.userId` 直接 return），否则通知列表全是自己的操作记录。
+2. **通知只是一张表，不是消息队列**：写库 + 前端轮询 `/notifications/unread-count`。够用，也省掉 WebSocket 的长连接与断线重连。
+3. **通知失败不阻塞主流程**：通知是附带动作，不能让一次评论因为通知异常而 500。
+
+### 14.3 分享链接：把鉴权从登录态里摘出来
+
+分享是唯一需要**免登录访问**的业务接口，所以它用了全局 Guard 的 `@Public()` 例外，并拆成两步：
+
+```
+POST /documents/:id/shares   登录 + document:list，生成 token（可选密码 → bcrypt 存 hash）
+GET  /shares/:code           公开，只回「是否有效 / 是否需要密码」，不回正文
+POST /shares/:code/access    公开，密码校验通过才回正文
+```
+
+拆成两个公开接口是为了前端体验：先渲染「这条分享需要密码」，再让用户输入。密码比对用 bcrypt、库里只存 hash；过期与关闭都靠字段判断而不删行，事后还能查「这条链接是谁建的」。
+
+### 14.4 前端对应部分
+
+| 位置 | 文件 | 做什么 |
+|---|---|---|
+| 详情页互动区 | `DocumentDetailPage.tsx` | 点赞 / 收藏 / 评论（两级）/ 分享弹窗 / 版本入口 |
+| 我的收藏 | `FavoritesPage.tsx` | `GET /favorites` 分页 |
+| 版本历史 | `DocumentVersionsPage.tsx` | 列表 + 回滚 |
+| 通知中心 | `NotificationsPage.tsx` + `AppLayout.tsx` 顶栏铃铛 | 列表 + 未读数轮询 |
+| 免登录分享页 | `SharePage.tsx` | `/share/:code`，不套 `AppLayout`、不过登录守卫 |
+| 分类维护 | `pages/admin/CategoriesPage.tsx` | 分类树 CRUD |
+
+一个贯穿的做法：**互动类接口都是「后端算好、前端只渲染」**——点赞返回最新计数、收藏返回最新状态、通知带 `isRead`，前端不做乐观更新，就少一处状态不一致的来源。
+
+**本节配图**
+
+![知识库产品体验功能增强](<agent-imgs/knowledge-hub-img/知识库产品体验功能增强.png>)
+
+---
+
+## 十五、总结
+
+### 15.1 第三阶段究竟交付了什么？
 
 | 维度 | 第一 / 第二阶段 | 第三阶段 |
 |---|---|---|
@@ -540,12 +660,12 @@ POST /ai/chat/stream（AI SDK UI Message Stream 协议）
 | 检索 | 能召回 | 召回 → 融合 → 精排 → 引用，且每环可降级 |
 | 问答 | 一次调用 | Agentic RAG：意图 → 检索 → 评估 → 改写 → 联网 |
 | 权限 | 接口级装饰器 | RBAC + 可见性规则下推到 PG / ES / Neo4j |
-| 交付 | "能跑给你看" | 能登录、能上传、能审核、能检索、能问、能管 |
+| 交付 | "能跑给你看" | 能登录、能上传、能审核、能互动（点赞/收藏/评论/分享）、能检索、能问、能管 |
 | 观测与评测 | 靠日志和感觉 | 5 个 span 的全链路 tracing + 9 条金标可重复跑分 |
 
 一条贯穿全项目的主线是：**前面学的是"让每块能力跑起来"，这一阶段学的是"让它们互相约束着一起跑"**——索引要跟着状态走，权限要跟着数据走，记忆不能越权替知识库说话。
 
-### 14.2 四条认识链的终点
+### 15.2 四条认识链的终点
 
 把三个阶段连起来，四条主线的演进是完整的：
 
@@ -558,12 +678,12 @@ POST /ai/chat/stream（AI SDK UI Message Stream 协议）
 观测评测：无 → 翻日志排查 → Langfuse tracing（5 个 span）+ 9 条金标 RAG 评测
 ```
 
-### 14.3 已知限制（写在文档里，比藏在代码里好）
+### 15.3 已知限制（写在文档里，比藏在代码里好）
 
-后端：无跨库事务（靠补偿删除保证最终一致）；索引是最终一致（刚发布立刻搜不到属预期）；MQ 无重试与死信队列；图谱抽取依赖 LLM；表结构全量依赖 `init.sql`、缺迁移工具；`document-status.ts` / `document-access.ts` 是纯函数却仍未补单测；评测只有 9 条金标（够冒烟与回归、不够统计结论），judge 与答题同源模型存在自评偏置，也未接 CI。
+后端：无跨库事务（靠补偿删除保证最终一致）；索引是最终一致（刚发布立刻搜不到属预期）；MQ 无重试与死信队列；图谱抽取依赖 LLM；表结构仍靠 `init.sql` + 手工增量脚本（`migrate-social-notification.sql`），没有版本化迁移工具；`document-status.ts` / `document-access.ts` 是纯函数却仍未补单测；评测只有 9 条金标（够冒烟与回归、不够统计结论），judge 与答题同源模型存在自评偏置，也未接 CI。
 
-前端：token 存 localStorage 有 XSS 风险（更稳的是 httpOnly Cookie + CSRF）；无自动化测试，只有 oxlint 与手工验证；问答流未做断线重连；审核无实时通知。
+前端：token 存 localStorage 有 XSS 风险（更稳的是 httpOnly Cookie + CSRF）；无自动化测试，只有 oxlint 与手工验证；问答流未做断线重连；站内通知只覆盖点赞 / 评论 / 系统广播，审核结果仍无通知，也没有 WebSocket 推送（靠轮询未读数）。
 
-### 14.4 一句话收尾
+### 15.4 一句话收尾
 
 第一阶段学会的是"**用 LangChain 把大模型变成工业流水线**"；第二阶段学会的是"**把流水线装进真实系统**"；第三阶段学会的是"**把系统变成一个别人真能用的东西**"——文档进得去、知识找得到、答案有出处、权限管得住、效果量得准。到这里，仓库不再是一堆示例的集合，而是一个能交付、也能说清哪里还没做好的项目。
