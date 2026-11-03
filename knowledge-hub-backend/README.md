@@ -139,7 +139,7 @@
 
 ```bash
 cd knowledge-hub-backend
-docker compose up -d
+docker compose up -d --build
 ```
 
 | 服务 | 端口 | 控制台 |
