@@ -210,6 +210,8 @@ footer{max-width:1400px;margin:0 auto;padding:24px 20px 60px;color:var(--muted);
       <h4>实操手册</h4>
       <ul class="nav-list">
         <li><a href="#e2e"><span class="n">A</span>端到端主流程</a></li>
+        <li><a href="#authflow"><span class="n">A+</span>鉴权流程全链路</a></li>
+        <li><a href="#docflow"><span class="n">A++</span>文档生命周期</a></li>
         <li><a href="#api"><span class="n">B</span>接口速查</a></li>
         <li><a href="#apipost"><span class="n">C</span>Apipost 实战</a></li>
         <li><a href="#plan"><span class="n">C+</span>七条测试计划</a></li>
@@ -451,6 +453,7 @@ npm run dev               # http://localhost:5173
 
 角色只有三个：ROLE_ADMIN / ROLE_REVIEWER / ROLE_USER
 权限码分三级：菜单 / 按钮 / 接口，如 document:list、document:create、system:permission:edit</code></pre>
+      <div class="note ok"><b>完整链路看这里：</b>登录签发 → localStorage 三键 → 401 自动刷新重放 → 三道关卡 → 注册激活 / 找回密码 / 分享白名单，另有文件清单与排错表，见 <a href="#authflow">A+ 鉴权流程全链路</a>。</div>
       <h3>必读文件</h3>
       <ul class="files">
         <li><span class="dot"></span><div><code>src/auth/auth.module.ts</code><span class="why">三个 Guard 的注册顺序就在这里，是全项目权限的入口</span></div></li>
@@ -1005,7 +1008,7 @@ createAgent({ model, tools, systemPrompt, middleware })
   <!-- ══════════ 端到端主流程 ══════════ -->
   <section id="e2e">
     <h2><span class="idx">A</span>端到端主流程（一张图串起全部阶段）</h2>
-    <p class="lead">建议把这条链路用 Apipost 亲手跑通一遍，跑通了整个项目就通了。</p>
+    <p class="lead">建议把这条链路用 Apipost 亲手跑通一遍，跑通了整个项目就通了。下面只给全景，每一步的细节（状态机、索引清理、归档与删除的区别）见 <a href="#docflow">A++ 文档生命周期</a>。</p>
     <div class="flow">
       <div class="flow-row">
         <div class="flow-box"><b>① 上传解析</b><span>POST /documents/upload/parse<br>PDF / 图片 / Office → MinerU → Markdown</span></div>
@@ -1054,6 +1057,493 @@ createAgent({ model, tools, systemPrompt, middleware })
         <figcaption>XLSX → Markdown 表格（逐 Sheet）</figcaption>
       </figure>
     </div>
+  </section>
+
+  <!-- ══════════ 鉴权流程 ══════════ -->
+
+  <section id="authflow">
+    <h2><span class="idx">A+</span>鉴权流程全链路：从登录到每一次请求</h2>
+    <p class="lead">
+      无状态双 Token（access 2h / refresh 7d）+ 三级全局守卫。JWT 里<strong>只放 userId 和 type</strong>，
+      角色 / 权限码 / 团队在<strong>每次请求时现查 Postgres</strong> —— 权限变更立即生效，代价是每请求多几次查询。
+    </p>
+
+    <div class="flow">
+      <div class="flow-row">
+        <div class="flow-box hl"><b>① 登录</b><span>POST /auth/login → 校验状态与密码 → 签 access + refresh</span></div>
+        <div class="flow-box"><b>② 前端落盘</b><span>localStorage 三键 + useSyncExternalStore 订阅</span></div>
+        <div class="flow-box"><b>③ 每次请求</b><span>Authorization: Bearer &lt;access&gt;</span></div>
+      </div>
+      <div class="flow-arrow">↓</div>
+      <div class="flow-row">
+        <div class="flow-box"><b>JwtAuthGuard</b><span>是否登录；@Public() 直接跳过</span></div>
+        <div class="flow-box"><b>RolesGuard</b><span>@Roles 角色命中其一</span></div>
+        <div class="flow-box"><b>PermissionsGuard</b><span>@RequirePermission 权限码命中其一</span></div>
+        <div class="flow-box hl2"><b>Controller</b><span>@CurrentUser() 取 AuthUser</span></div>
+      </div>
+      <div class="flow-arrow">↓ 失败分支</div>
+      <div class="flow-row">
+        <div class="flow-box"><b>401 未登录 / 失效</b><span>前端自动 POST /auth/refresh → 成功则重放原请求 1 次</span></div>
+        <div class="flow-box"><b>403 权限不足</b><span>不刷新、不重试，直接提示</span></div>
+      </div>
+    </div>
+
+    <h3>一、登录：签发两个 Token</h3>
+    <pre><code>前端 pages/LoginPage.tsx → authApi.login() → POST /auth/login（@Public）
+  → AuthService.login()
+      → UserService.validateCredentials()   查用户 + status===1 + emailVerified!==0 + bcrypt.compare
+      → touchLastLogin() → buildLoginResult()   签 access(2h) + refresh(7d)
+  → { accessToken, refreshToken, tokenType:'Bearer', expiresIn:7200, userInfo }
+  → 前端 setAuth() 落盘 → 跳 /dashboard</code></pre>
+    <div class="note"><b>四种失败都是 401，只有 message 不同：</b>用户不存在 / 密码错误 / 账户已禁用（<code>status=0</code>）/ 账户未激活（<code>email_verified=0</code>）。排查先看 message，别一律当成密码错误。</div>
+
+    <h3>二、前端保存与订阅</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>localStorage key</th><th>内容</th><th>使用方</th></tr></thead>
+        <tbody>
+          <tr><td><code>kh_access_token</code></td><td>access token</td><td>每个请求的 <code>Authorization</code> 头</td></tr>
+          <tr><td><code>kh_refresh_token</code></td><td>refresh token</td><td>仅在 401 触发刷新时读取</td></tr>
+          <tr><td><code>kh_user</code></td><td><code>AuthUser</code> JSON</td><td>菜单 / 按钮 / 路由守卫的显隐判断</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <pre><code>// src/auth.ts —— 没有 Redux，useSyncExternalStore 自建最小订阅
+setAuth({ accessToken, refreshToken, user })   // 写三键 + emit()
+useAuth()                                      // 读当前 user，变化即重渲染
+clearAuth()                                    // 登出 / 刷新失败时清空</code></pre>
+    <div class="note ok"><b>刷新浏览器不掉线：</b><code>loadUser()</code> 启动时从 <code>kh_user</code> 恢复登录态，<code>&lt;Guard&gt;</code> 因此不会把你踢回登录页；
+      token 是否真的还有效，交给第一个 API 请求（401 → refresh）去验证。</div>
+
+    <h3>三、请求如何带 Token、过期如何续</h3>
+    <pre><code>// src/api/client.ts —— 全项目唯一 HTTP 出口
+const token = getAccessToken()
+if (token) headers.set('Authorization', `Bearer ${token}`)
+const res = await fetch(`${API_BASE}${path}`, { ...init, headers })
+
+if (res.status === 401 && retry
+    && !path.startsWith('/auth/login') && !path.startsWith('/auth/refresh')) {
+  const ok = await tryRefresh()               // 并发请求共享同一 Promise（单飞）
+  if (ok) return request(path, init, false)   // 重放原请求，只重放一次
+  clearAuth()
+  throw new ApiError(401, '未登录或登录已过期')
+}</code></pre>
+    <ul>
+      <li><strong>单飞刷新</strong>：同时 5 个请求 401，只会发 1 次 <code>POST /auth/refresh</code>，其余等同一个 <code>refreshing</code> Promise。</li>
+      <li><strong>重放上限 1 次</strong>：递归传 <code>retry=false</code>，杜绝「刷新 → 401 → 再刷新」死循环。</li>
+      <li><strong>排除自身</strong>：登录、刷新接口的 401 不触发刷新逻辑。</li>
+      <li><strong>失效即登出</strong>：刷新失败 → <code>clearAuth()</code> → <code>useAuth()</code> 变 null → <code>&lt;Guard&gt;</code> 自动回 <code>/login</code>。</li>
+    </ul>
+
+    <h3>四、后端校验链（三个 APP_GUARD + JWT 策略，按执行顺序）</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>顺序</th><th>守卫</th><th>判断依据</th><th>不通过</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td><code>JwtAuthGuard</code></td><td>标了 <code>@Public()</code> → 放行；否则 passport-jwt 验签验期</td><td>401</td></tr>
+          <tr><td>2</td><td><code>JwtStrategy.validate()</code></td><td><code>payload.type === 'access'</code>（refresh 不能当通行证）；<code>buildAuthUser()</code> 见 <code>status !== 1</code> 即拒</td><td>401</td></tr>
+          <tr><td>3</td><td><code>RolesGuard</code></td><td>无 <code>@Roles</code> → 放行；有则 <code>user.roles</code> 须命中其一</td><td>403</td></tr>
+          <tr><td>4</td><td><code>PermissionsGuard</code></td><td>无 <code>@RequirePermission</code> → 放行；<code>ROLE_ADMIN</code> 直通；否则 <code>user.permissions</code> 须命中其一</td><td>403</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="font-size:13.5px;color:var(--muted)">三者在 <code>src/auth/auth.module.ts</code> 以 <code>{ provide: APP_GUARD, useClass: ... }</code> 注册，所以<strong>全站默认需要登录</strong>，公开接口必须显式标注。</p>
+
+    <h4>@Public() 白名单（全量）</h4>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>接口</th><th>为什么公开</th></tr></thead>
+        <tbody>
+          <tr><td><code>POST /auth/register</code> · <code>POST /auth/login</code></td><td>注册无身份；登录前还没有 token</td></tr>
+          <tr><td><code>POST /auth/refresh</code></td><td>access 已过期，只能用 refresh 换</td></tr>
+          <tr><td><code>GET /auth/verify-email</code></td><td>邮件链接直接点开，凭证在 query 里</td></tr>
+          <tr><td><code>POST /auth/password/reset/send-code</code> · <code>POST /auth/password/reset</code></td><td>忘记密码时必然未登录</td></tr>
+          <tr><td><code>GET /share/:code</code> · <code>POST /share/:code/access</code></td><td><strong>分享码本身就是凭证</strong>，外部分享不走登录态</td></tr>
+          <tr><td><code>GET /</code>（AppController）</td><td>健康检查 / 欢迎语</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note danger"><b>白名单即攻击面：</b>分享接口的访问控制完全依赖 code 的随机性与有效期；注册、重置验证码是唯一能匿名打进来的写操作，需要限流。</div>
+
+    <h3>五、AuthUser 每次请求现算</h3>
+    <pre><code>最终权限 = 直授权限 kh_user_permission
+         ∪ 角色权限（kh_user_role → kh_role_permission）
+         ∪ ROLE_ADMIN 时追加 ADMIN_OPERATION_PERMISSIONS
+
+AuthUser = { userId, username, realName, email, avatar, roles[], permissions[], teamIds[] }
+teamIds ← TeamService.listAccessibleTeamIds()（自己的团队 + 担任负责人的团队），文档可见性靠它下推</code></pre>
+    <div class="note ok"><b>好处：</b>禁用账号、收回权限、调整团队，下一次请求立刻生效。<b>代价：</b>每请求约 4 次库查询（用户 / 角色 / 权限 / 团队），高 QPS 需给 <code>AuthUser</code> 加 Redis 短缓存。</div>
+
+    <h4>@CurrentUser 与 Passport：<code>request.user</code> 从哪来</h4>
+    <p style="font-size:13.5px;color:var(--muted)">
+      控制器里的 <code>@CurrentUser() user: AuthUser</code> 不是 Nest 内置装饰器，而是项目用 <code>createParamDecorator</code> 写的<strong>参数装饰器</strong>。
+      它只做一件事：把 <code>request.user</code> 取出来塞进方法参数，省掉 <code>@Req() req</code> 再 <code>req.user</code> 的样板代码 —— 本身<strong>不验签、不查库</strong>。
+    </p>
+    <pre><code>// src/auth/decorators/current-user.decorator.ts
+export const CurrentUser = createParamDecorator(
+  (_data: unknown, ctx: ExecutionContext): AuthUser =&gt; {
+    const request = ctx.switchToHttp().getRequest&lt;{ user: AuthUser }&gt;();
+    return request.user;   // 由 JwtStrategy.validate() 的返回值挂上去
+  },
+);</code></pre>
+    <div class="flow">
+      <div class="flow-row">
+        <div class="flow-box"><b>Authorization: Bearer &lt;access&gt;</b><span>前端 <code>client.ts</code> 统一注入</span></div>
+      </div>
+      <div class="flow-arrow">↓ passport-jwt</div>
+      <div class="flow-row">
+        <div class="flow-box"><b>取 token + 验签 + 验期</b><span><code>ExtractJwt.fromAuthHeaderAsBearerToken()</code></span></div>
+        <div class="flow-box"><b>JwtStrategy.validate()</b><span><code>type</code> 必须是 access → <code>buildAuthUser(sub)</code></span></div>
+      </div>
+      <div class="flow-arrow">↓ validate 的返回值就是注入值</div>
+      <div class="flow-row">
+        <div class="flow-box hl2"><b>request.user = AuthUser</b><span><code>@CurrentUser()</code> 读到的就是它</span></div>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>角色</th><th>职责</th></tr></thead>
+        <tbody>
+          <tr><td><code>passport</code></td><td>核心：维护策略注册表，提供 <code>authenticate('jwt')</code> 入口</td></tr>
+          <tr><td><code>passport-jwt</code></td><td>具体策略：取 token、验签、验过期</td></tr>
+          <tr><td><code>@nestjs/passport</code></td><td>适配层：<code>PassportStrategy</code>（写策略）、<code>AuthGuard('jwt')</code>（写守卫）</td></tr>
+          <tr><td><code>JwtStrategy</code> / <code>JwtAuthGuard</code></td><td>项目里的两个具体实现；<code>handleRequest</code> 把各类失败统一收敛成 401</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note"><b>三个使用约束：</b>
+      ① 在 <code>@Public()</code> 接口里 <code>request.user</code> 是 <code>undefined</code>，装饰器不会报错，但业务层会炸成 500；
+      ② 装饰器忽略了 <code>data</code> 参数，<strong>不能</strong>写 <code>@CurrentUser('userId')</code>，要字段就自己解构；
+      ③ 它是「本次请求的快照」，同一请求内改权限不会回写。
+    </div>
+
+    <h3>六、三条旁路流程</h3>
+    <pre><code>① 注册 + 邮箱激活（REQUIRE_EMAIL_VERIFICATION 默认 false）
+POST /auth/register → 建用户（需验证时 status=0, email_verified=0）
+  → Redis: email:activation:token:&lt;token&gt; → userId  (24h)
+           email:activation:user:&lt;userId&gt; → token  (重发即作废旧 token)
+  → 发激活邮件
+GET /auth/verify-email?token=... → consumeToken()（取出即删）→ activateEmail()
+
+② 忘记密码
+POST /auth/password/reset/send-code → 6 位随机码 Redis(TTL 600s)
+  冷却 60s：读剩余 TTL，&gt;540s 说明距上次发送不足 60s，直接拦
+POST /auth/password/reset → 校验 code → bcrypt 重哈希 → 删 key
+
+③ 登出：服务端什么都不做
+POST /auth/logout → { message: '已退出登录' }    // 无状态 JWT，没有会话可销毁
+前端：authApi.logout().catch(() =&gt; {}) → clearAuth() → 跳 /login</code></pre>
+    <div class="note danger"><b>这是「假登出」：</b>refresh token 在 7 天内依然有效，服务端没有白名单 / 黑名单可吊销；要真失效需引入 Redis 存储 + rotation。</div>
+
+    <h3>七、涉及文件清单</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>位置</th><th>文件</th><th>职责</th></tr></thead>
+        <tbody>
+          <tr><td rowspan="2">后端 · 接口层</td><td><code>src/auth/auth.controller.ts</code></td><td>register / login / refresh / verify-email / 重置 / logout / me / reviewer-ids</td></tr>
+          <tr><td><code>src/auth/dto/auth.dto.ts</code></td><td><code>LoginDto</code> / <code>RegisterDto</code> / <code>RefreshTokenDto</code></td></tr>
+          <tr><td rowspan="2">后端 · 令牌</td><td><code>src/auth/auth.module.ts</code></td><td>JwtModule 密钥与过期时间、注册三个 <code>APP_GUARD</code></td></tr>
+          <tr><td><code>src/auth/auth.service.ts</code></td><td>签发 / 校验 token、组装 <code>LoginResult</code>、注册与重置编排</td></tr>
+          <tr><td rowspan="5">后端 · 守卫与策略</td><td><code>src/auth/jwt.strategy.ts</code></td><td>从 <code>Bearer</code> 头取 token → 验签 → 换 <code>AuthUser</code></td></tr>
+          <tr><td><code>src/auth/jwt-auth.guard.ts</code></td><td>全局登录守卫 + <code>@Public</code> 放行 + 统一 401</td></tr>
+          <tr><td><code>src/auth/roles.guard.ts</code></td><td><code>@Roles</code> 校验</td></tr>
+          <tr><td><code>src/auth/permissions.guard.ts</code></td><td><code>@RequirePermission</code> 校验（ADMIN 直通）</td></tr>
+          <tr><td><code>src/auth/decorators/</code></td><td><code>@Public</code> / <code>@Roles</code> / <code>@RequirePermission</code> / <code>@CurrentUser</code></td></tr>
+          <tr><td rowspan="3">后端 · 用户权限</td><td><code>src/user/user.service.ts</code></td><td><code>validateCredentials</code> / <code>buildAuthUser</code> / <code>toAuthUser</code> / <code>register</code></td></tr>
+          <tr><td><code>src/user/permission.service.ts</code></td><td><code>getUserPermissionCodes()</code>：直授 ∪ 角色 ∪ ADMIN 全量</td></tr>
+          <tr><td><code>src/user/entities/*.entity.ts</code> · <code>src/common/constants/roles.ts</code></td><td>RBAC 六表；角色编码与权限码清单</td></tr>
+          <tr><td rowspan="3">后端 · 旁路</td><td><code>src/auth/email.service.ts</code></td><td>激活邮件、重置验证码邮件</td></tr>
+          <tr><td><code>src/auth/email-activation.service.ts</code></td><td>激活 token 的 Redis 双向键与 TTL</td></tr>
+          <tr><td><code>src/auth/password-reset.service.ts</code></td><td>验证码存取、TTL、冷却判断</td></tr>
+          <tr><td rowspan="4">前端</td><td><code>src/auth.ts</code></td><td>三键持久化 + <code>useSyncExternalStore</code> 订阅</td></tr>
+          <tr><td><code>src/api/client.ts</code></td><td>注入 Bearer、401 单飞刷新并重放、<code>ApiError</code></td></tr>
+          <tr><td><code>src/App.tsx</code></td><td><code>&lt;Guard&gt;</code> 登录拦截、<code>&lt;Perm&gt;</code> 权限码拦截、角色路由</td></tr>
+          <tr><td><code>src/pages/LoginPage.tsx</code> · <code>src/layouts/AppLayout.tsx</code></td><td>登录表单 → <code>setAuth</code>；侧边栏按 <code>can()</code> 渲染、退出登录</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>八、排错对照表</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>现象</th><th>最可能原因</th><th>看哪里</th></tr></thead>
+        <tbody>
+          <tr><td>401「未登录或 token 已失效」</td><td>没带 token / 已过期 / <code>type</code> 不是 access</td><td><code>jwt-auth.guard.ts</code> · <code>jwt.strategy.ts</code></td></tr>
+          <tr><td>401「账户已禁用」</td><td><code>kh_user.status !== 1</code>，或邮箱未激活</td><td><code>UserService.buildAuthUser()</code></td></tr>
+          <tr><td>403「权限不足」但已登录</td><td>角色不满足 <code>@Roles</code>，或权限码未授予（且非 ADMIN）</td><td><code>roles.guard.ts</code> · <code>permissions.guard.ts</code></td></tr>
+          <tr><td>反复跳登录页</td><td>refresh 也过期（&gt;7d）→ <code>clearAuth</code></td><td><code>client.ts::tryRefresh()</code></td></tr>
+          <tr><td>菜单里有、点进去 403</td><td>前端 <code>kh_user.permissions</code> 是旧快照</td><td>刷新页面重拉 <code>/auth/me</code></td></tr>
+          <tr><td>400 抱怨「多余字段」</td><td><code>forbidNonWhitelisted: true</code>，DTO 未声明的字段不能传</td><td><code>src/main.ts</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note danger"><b>3 个必须知道的坑：</b><br>
+      ① <b>密钥默认值</b>：<code>auth.module.ts</code> 与 <code>jwt.strategy.ts</code> 都写了 <code>config.get('JWT_SECRET', 'dev-secret-change-me')</code>，
+      而 <code>.env</code> 里并没有配 <code>JWT_SECRET</code> —— 意味着任何人都能用这个公开字符串伪造任意 <code>sub</code> 的 token。上线前必须补随机密钥。<br>
+      ② <b>token 存 localStorage</b>：一次 XSS 就能把 access + refresh 全带走；改 HttpOnly Cookie 需同步收紧 CORS。<br>
+      ③ <b>前端权限只是显隐</b>：<code>kh_user.permissions</code> 可被随手改，真正的门禁只在三个 Guard 里。
+    </div>
+  </section>
+
+  <!-- ══════════ 文档生命周期 ══════════ -->
+
+  <section id="docflow">
+    <h2><span class="idx">A++</span>文档生命周期：上传 → 审核 → 发布 → 归档</h2>
+    <p class="lead">
+      A 章给的是整体链路，这一章把「一份文件怎么变成可检索的文档」拆到每一步：状态怎么流转、索引何时建何时清、每个动作各自写哪个库。
+      所有流转规则集中在 <code>src/document/document-status.ts</code> 的 4 个 <code>canXxx()</code> 函数里，改规则只看这一个文件。
+    </p>
+
+    <h3>一、状态机：4 个状态</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>值</th><th>状态</th><th>能否被检索</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>0</td><td><code>Draft</code> 草稿</td><td>否</td><td>上传后的默认状态，不投任何索引</td></tr>
+          <tr><td>1</td><td><code>Published</code> 已发布</td><td>是</td><td>RAG / Search / KG 三套索引齐全</td></tr>
+          <tr><td>2</td><td><code>Archived</code> 已归档</td><td>否</td><td>清索引、正文保留，可再 publish 上架</td></tr>
+          <tr><td>3</td><td><code>PendingReview</code> 待审核</td><td>否</td><td>审核期间不进索引；从已发布提审时旧索引也会被清掉</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <pre><code>POST /documents/upload/parse        ← 上传是唯一创建入口，落地即草稿
+        │
+        ▼
+   [Draft 0] ──publish（需审核）──▶ [PendingReview 3] ──approve──▶ [Published 1]
+        │                                  │                             │
+        │                    reject ───────┘                             │
+        │                       ▼                                        │
+        │                   [Draft 0] ◀──── save-draft ──────────────────┤
+        │                                                                │
+        └──publish（免审）──────────────────────────────────────────────▶ │
+                                                                         │
+   [Published 1] ──archive──▶ [Archived 2] ──publish──▶ [Published 1] ◀──┘</code></pre>
+    <div class="note danger">
+      <b>默认就是审核模式：</b><code>DOCUMENT_REQUIRE_APPROVAL</code> 的代码默认值是 <code>'true'</code>（判据为 <code>!== 'false'</code>），
+      而 <code>.env</code> 里并没有这一项 —— 所以现在 <code>PUT /documents/:id/publish</code> 只会把文档推进「待审核」，不会直接上线。
+      想跳过审核必须显式写 <code>DOCUMENT_REQUIRE_APPROVAL=false</code>。
+    </div>
+
+    <h3>二、上传：一条同步链路，解析完才返回</h3>
+    <div class="flow">
+      <div class="flow-row">
+        <div class="flow-box"><b>① 前端选文件</b><span>列表页 <code>Upload.beforeUpload</code>，<code>FormData</code> 字段名必须是 <code>file</code></span></div>
+        <div class="flow-box"><b>② 接口收流</b><span><code>FileInterceptor('file')</code>，上限 200MB，<strong>全程在内存 buffer</strong></span></div>
+      </div>
+      <div class="flow-arrow">↓</div>
+      <div class="flow-row">
+        <div class="flow-box"><b>③ 解析成 Markdown</b><span>pdf / 图片 / Office → MinerU 远程 API；txt / md → 本地直读</span></div>
+        <div class="flow-box"><b>④ 原文件存 RustFS</b><span><code>RUSTFS_ENABLED=false</code> 时静默跳过，只打一条 warn</span></div>
+      </div>
+      <div class="flow-arrow">↓</div>
+      <div class="flow-row">
+        <div class="flow-box hl"><b>⑤ 双写落库</b><span>Mongo 存正文（ObjectId）+ PG 存元数据（雪花 ID），靠 <code>content_id</code> 关联</span></div>
+        <div class="flow-box"><b>⑥ 建初版并返回</b><span>写 <code>version=1</code> 快照；返回 documentId + 200 字预览，状态 = 草稿</span></div>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>环节</th><th>实现要点</th><th>出错会怎样</th></tr></thead>
+        <tbody>
+          <tr><td>格式校验</td><td><code>FileParserService.isSupported()</code>：pdf / png / jpg / jp2 / webp / gif / bmp / doc(x) / ppt(x) / xls(x) / txt / md</td><td>400，提示支持的格式清单</td></tr>
+          <tr><td>解析分流</td><td>Office / PDF / 图片走 MinerU（提交 → 轮询 → 下载 zip → 抽 Markdown，图片转存 RustFS 并回写链接）；txt / md 按 UTF-8 直读</td><td>400「文件解析失败」；结果为空也 400</td></tr>
+          <tr><td>双库写入</td><td>先写 Mongo 拿 ObjectId，再写 PG 主表；<strong>没有跨库事务</strong></td><td>PG 失败时 catch 里物理删除刚写的 Mongo 正文</td></tr>
+          <tr><td>版本快照</td><td><code>versions.recordInitial()</code> 写第 1 版</td><td>随同事务失败一并回滚</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <pre><code>// src/document/document.service.ts —— 双写与补偿
+const contentDoc = await this.contentModel.create({ documentId: id, content, version: 1 });
+const contentId = String(contentDoc._id);
+try {
+  const saved = await this.em.save(doc);            // PG 元数据，status = Draft
+  await this.versions.recordInitial({ ... });
+  return { ...saved, content };
+} catch (error) {
+  await this.contentModel.deleteOne({ _id: contentDoc._id });   // 补偿：删掉 Mongo 正文
+  throw error;
+}</code></pre>
+    <div class="note">
+      <b>上传接口是同步的：</b>MinerU 轮询默认 3s 一次、超时 10 分钟，所以这个请求最坏会挂十分钟。前端为此专门弹了
+      <code>message.loading('正在解析，请留在此页', 0)</code> —— 用户中途切页只会 abort 浏览器请求，后端照旧把文档建好，列表里就会「凭空多出一条草稿」。
+    </div>
+
+    <h4>文件到底落在哪：PG / Mongo / RustFS 与两个 ID</h4>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>存什么</th><th>存哪</th><th>具体位置</th><th>关联键</th></tr></thead>
+        <tbody>
+          <tr><td>元数据（标题 / 作者 / 状态 / 团队 / 权限）</td><td>Postgres</td><td><code>kh_document.id</code>（雪花 BIGINT）+ <code>content_id</code>（varchar, unique）</td><td>—</td></tr>
+          <tr><td>Markdown 正文<strong>整篇字符串</strong></td><td>MongoDB</td><td><code>document_content.content</code>，同集合还有 <code>contentLength</code> / <code>contentSummary</code> / <code>version</code></td><td><code>_id</code> ↔ <code>content_id</code><br><code>documentId</code> ↔ <code>kh_document.id</code></td></tr>
+          <tr><td>原文件（pdf / docx / pptx…）</td><td>RustFS</td><td><code>knowledge-hub/documents/2026/11/03/名字-uuid.pdf</code></td><td><strong>无</strong>（URL 只在响应里返回）</td></tr>
+          <tr><td>MinerU 解析出的图片</td><td>RustFS</td><td><code>knowledge-hub/document-images/2026/11/03/xxx-uuid.png</code></td><td><strong>无</strong>（URL 内嵌进 Markdown）</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="font-size:13.5px;color:var(--muted)">
+      RustFS 是 S3 兼容存储（<code>@aws-sdk/client-s3</code> + <code>forcePathStyle</code>），<strong>不是阿里云 OSS</strong>；
+      bucket 默认 <code>knowledge-hub</code>，对象 URL 由 <code>{RUSTFS_PUBLIC_URL}/{bucket}/{key}</code> 拼成。
+    </p>
+    <pre><code>// src/storage/rustfs.service.ts —— 两类对象只差一个 prefix
+const key = `${prefix}/${YYYY}/${MM}/${DD}/${safeBase}-${randomUUID()}${ext}`;
+const url = `${RUSTFS_PUBLIC_URL}/${bucket}/${key}`;
+
+原文件： prefix = 'documents'         contentType = 上传时的 mimetype
+图片  ： prefix = 'document-images'   contentType = 按扩展名查表（png / jpeg / jp2 / webp / gif / bmp）</code></pre>
+
+    <h4>两个 ID 的双向 1:1</h4>
+    <pre><code>kh_document.id  (BIGINT 雪花)  ────── 1:1 ──────►  document_content.documentId
+kh_document.content_id (unique) ◄──── 1:1 ──────   document_content._id (ObjectId)
+
+写入：先 create Mongo 拿 ObjectId → String(_id) 存进 PG 的 content_id → PG 失败则删掉刚写的 Mongo 文档
+读正文：PG 查出 content_id → Mongo findOne({ _id: content_id })
+读元数据：Mongo findOne({ documentId: kh_document.id }) → PG findOne(kh_document, { id })</code></pre>
+    <div class="note ok">
+      <b>为什么要拆两个库：</b>只有「正文」这种长文本、且不需要事务的字段放 Mongo；凡是需要
+      <code>WHERE status = 1 AND team_id IN (...)</code>、需要唯一约束和关联查询的字段全留在 PG。
+      代价就是<strong>没有跨库事务</strong>，只能靠 catch 里的补偿删除兜底。
+    </div>
+
+    <h4>图片：传上去了，但没有外键</h4>
+    <pre><code>// src/document/parser/mineru.parser.ts —— 解压 zip 后逐张传 RustFS，再回写 Markdown
+const url = await this.rustfs.uploadBytes(bytes, {
+  fileName: path.posix.basename(entry.name),
+  contentType: IMAGE_CONTENT_TYPES[ext] ?? 'application/octet-stream',
+  prefix: 'document-images',
+});
+urlByPath.set(rel, url);                                    // rel 形如 images/abc.png
+return cleanMarkdown(rewriteImageUrls(markdown, urlByPath)); // 相对路径 → 绝对 URL</code></pre>
+    <div class="note danger">
+      <b>三个由此而来的隐患：</b><br>
+      ① <b>原文件 URL 没有落库</b>：<code>fileUrl</code> 只出现在上传响应和一行日志里，<code>kh_document</code> 没有 <code>file_url</code> 列 —— 刷新页面后再也找不到附件地址，对象成了孤儿。<br>
+      ② <b>图片 key 只含随机 UUID、不含 documentId</b>：无法按文档批量列出或删除图片，也没有引用计数，多文档引用同一张图时无从判断。<br>
+      ③ <b>归档 / 删除文档不回收 RustFS 对象</b>：软删只改 <code>deleted</code> 标记，原文件与图片永久留下；要清理只能写脚本正则扫 <code>document_content.content</code> 里的 <code>document-images/</code> 链接。
+    </div>
+    <div class="note">
+      <b>RustFS 被禁用时行为不一致：</b>原文件是<strong>静默跳过</strong>（只 warn，文档照建，<code>fileUrl = null</code>）；
+      但解析结果里一旦含图片就直接 400「解析结果包含图片，但 RustFS 未启用，无法替换图片地址」—— 不替换等于 Markdown 里留着坏路径。
+    </div>
+
+    <h3>三、编辑：正文变更 = Mongo 版本 +1 且留快照</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>操作</th><th>规则</th><th>副作用</th></tr></thead>
+        <tbody>
+          <tr><td><code>PATCH /documents/:id</code> 改正文</td><td>Mongo <code>version + 1</code>，并写一条版本快照（<code>recordContentChange</code>）</td><td>已发布且<strong>免审</strong>：立即重建索引；<strong>需审</strong>：不重建，等再次发布</td></tr>
+          <tr><td>审核中改内容</td><td>传了 <code>content</code> 或 <code>title</code> 一律 400「审核中的文档不可编辑」</td><td>—</td></tr>
+          <tr><td>只改 <code>isPublic</code> / <code>teamId</code></td><td>允许，且立刻刷三套索引的可见性字段</td><td>否则搜索会继续按旧权限放行</td></tr>
+          <tr><td>用 PATCH 改 <code>status</code></td><td>只允许 <code>Published → Draft</code>，其余 400</td><td>状态变更必须走专用接口</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>四、发布与审核：一个 <code>publish</code> 接口两条分支</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>当前状态</th><th>需审核（默认）</th><th>免审</th></tr></thead>
+        <tbody>
+          <tr><td>Draft 0</td><td>→ PendingReview 3</td><td>→ Published 1 + 建索引</td></tr>
+          <tr><td>Published 1</td><td>→ PendingReview 3（<strong>先清旧索引</strong>）</td><td>→ Published 1 重新建索引</td></tr>
+          <tr><td>Archived 2</td><td>→ Published 1 直接上架</td><td>→ Published 1 直接上架</td></tr>
+          <tr><td>PendingReview 3</td><td colspan="2">400「文档审核中，请等待审核结果」</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="font-size:13.5px;color:var(--muted)">提交审核会往 <code>kh_document_review</code> 插一条流水（<code>review_result</code> 留空表示待审，<code>before_status</code> 记住来源），<strong>同一文档同时只能有一条待审记录</strong>。</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>决策</th><th>接口</th><th>写什么</th><th>文档状态</th></tr></thead>
+        <tbody>
+          <tr><td>通过</td><td><code>POST /documents/reviews/tasks/:taskId/approve</code></td><td>结果 Approved + 审核人 + 意见 + 时间</td><td>→ Published 1 + <code>publishTime</code> + 重建索引</td></tr>
+          <tr><td>驳回</td><td><code>POST /documents/reviews/tasks/:taskId/reject</code></td><td>必须填 <code>reviewComment</code>（否则 400）</td><td>→ Draft 0，作者改完可再 submit</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note danger">
+      <b>从已发布提审 = 短暂下线：</b><code>submitForReview</code> 会先调 <code>safeUnpublish</code> 清掉三套索引，审核期间<strong>连老版本都搜不到</strong>。
+      想要「新旧并存 / 灰度」，得改成另存新版本，而不是原地提审。
+    </div>
+
+    <h3>五、发布之后：三条 MQ 异步管线</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>队列</th><th>消费者做什么</th><th>落到哪</th></tr></thead>
+        <tbody>
+          <tr><td><code>RAG_REINDEX_QUEUE</code></td><td>取正文 → 分块 → embedding</td><td>ES <code>kh_chunk</code>（dense_vector）</td></tr>
+          <tr><td><code>SEARCH_INDEX_QUEUE</code></td><td>只投 documentId，消费者回 PG + Mongo 拉全文</td><td>ES <code>kh_document</code></td></tr>
+          <tr><td><code>KG_GRAPH_QUEUE</code></td><td>分块 → LLM 抽实体关系</td><td>Neo4j 节点与 <code>RELATED_TO</code> 边</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <pre><code>// src/document/document.service.ts —— 投递失败只 warn，不回滚文档状态
+private async safePublish(doc: DocumentEntity) {
+  try {
+    await this.pipelinePublisher.afterPublish(doc);   // 三条消息并行，不等结果
+  } catch (error) {
+    this.logger.warn(`索引投递失败（不影响文档状态）：documentId=${doc.id}, ${message}`);
+  }
+}</code></pre>
+    <div class="note danger">
+      <b>最隐蔽的一类故障：</b>MQ 挂了，文档状态照样是 <code>Published</code>，但<strong>搜不到、问不到</strong>。
+      项目里没有「手动重建索引」的 HTTP 接口，补救只能重新 publish 触发一次，或直接调 <code>PipelineOrchestrator</code>。
+      排查顺序：先看 RabbitMQ 连通性与消费者日志，再去看文档状态。
+    </div>
+
+    <h3>六、归档 / 下架 / 删除：三个不同动作</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>动作</th><th>接口</th><th>状态变化</th><th>索引</th><th>正文</th><th>能否复活</th></tr></thead>
+        <tbody>
+          <tr><td>归档</td><td><code>PUT /documents/:id/archive</code></td><td>Published → Archived</td><td>清空三套</td><td>保留</td><td>可以，再 publish</td></tr>
+          <tr><td>下架编辑</td><td><code>PUT /documents/:id/save-draft</code></td><td>Published → Draft</td><td>清空三套</td><td>保留</td><td>可以，改完再发</td></tr>
+          <tr><td>软删除</td><td><code>DELETE /documents/:id</code></td><td><code>deleted=true</code>，状态不变</td><td>仅 Published 才清</td><td>Mongo 也标 <code>deleted</code>，<strong>不物理删</strong></td><td>无接口入口</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note">
+      <b>谁能动：</b>归档 / 下架 / 删除都过 <code>canWriteDocument()</code> —— <strong>只有作者本人或 ADMIN</strong>，审核员也不行；
+      归档只能从 Published 出发（草稿归档会 400），下架也只能从 Published 出发。
+    </div>
+
+    <h3>七、可见性：三套索引必须同一套规则</h3>
+    <pre><code>// src/document/document-access.ts —— PG 侧判据
+管理/审核员 → 全放行
+作者本人    → 可读
+非已发布    → 不可读
+is_public   → 可读
+team_id ∈ 我所在团队 → 可读</code></pre>
+    <p style="font-size:13.5px;color:var(--muted)">
+      同一语义在 ES 里是 <code>bool.should</code>（<code>is_public</code> / <code>author_id</code> / <code>team_id</code>），在 Neo4j 里是
+      <code>neo4jDocumentAccessWhere()</code> 生成的 Cypher <code>OR</code> 链。<strong>改可见性规则必须同时改三处</strong>，否则会出现「列表看不到、搜索却搜得到」。
+    </p>
+
+    <h3>八、6 个高频坑</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>现象</th><th>真因</th><th>看哪里</th></tr></thead>
+        <tbody>
+          <tr><td>上传卡住十分钟</td><td>MinerU 同步解析，请求内轮询</td><td><code>mineru.parser.ts</code> 的 <code>POLL_TIMEOUT_MS</code></td></tr>
+          <tr><td>大文件导致服务 OOM</td><td>200MB 上限 + <code>FileInterceptor</code> 全内存，无 diskStorage</td><td><code>document.controller.ts</code></td></tr>
+          <tr><td>点了发布却没上线</td><td><code>DOCUMENT_REQUIRE_APPROVAL</code> 未配置，默认走审核</td><td><code>DocumentReviewService.isRequireApproval()</code></td></tr>
+          <tr><td>发布成功但搜不到</td><td>MQ 投递失败被 <code>safePublish</code> 吞掉</td><td>RabbitMQ 连接 + <code>PipelineOrchestrator</code> 日志</td></tr>
+          <tr><td>附件链接为空</td><td><code>RUSTFS_ENABLED=false</code> 时静默跳过原文件上传</td><td><code>.env</code> 的 <code>RUSTFS_*</code></td></tr>
+          <tr><td>文档删了，RustFS 里还留着原文件和图片</td><td>对象 key 里没有 documentId，删除只做软删、不回收对象</td><td><code>rustfs.service.ts</code> 的 key 规则 + <code>document.service.ts::remove()</code></td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>九、相关文件清单</h3>
+    <ul class="files">
+      <li><span class="dot"></span><div><code>src/document/document-status.ts</code><span class="why">4 个状态 + 4 个 canXxx() 流转规则，唯一真相源</span></div></li>
+      <li><span class="dot"></span><div><code>src/document/document.service.ts</code><span class="why">create / update / publish / directPublish / archive / saveAsDraft / remove / uploadAndCreateDocument</span></div></li>
+      <li><span class="dot"></span><div><code>src/document/document-access.ts</code><span class="why">读写判定 + ES filter + Neo4j 条件，可见性三处一致</span></div></li>
+      <li><span class="dot"></span><div><code>src/document/document-review.service.ts</code><span class="why">submitForReview / approveReview / rejectReview / isRequireApproval</span></div></li>
+      <li><span class="dot"></span><div><code>src/document/document-version.service.ts</code><span class="why">recordInitial / recordContentChange / list（仅作者与 ADMIN 可读）</span></div></li>
+      <li><span class="dot"></span><div><code>src/document/parser/file-parser.service.ts</code> · <code>mineru.parser.ts</code><span class="why">按扩展名分流：MinerU 远程解析 vs 本地直读</span></div></li>
+      <li><span class="dot"></span><div><code>src/mq/document-pipeline.publisher.ts</code> · <code>document-pipeline.consumer.ts</code><span class="why">afterPublish / afterUnpublish 与三类消息的消费入口</span></div></li>
+      <li><span class="dot"></span><div><code>src/pipeline/pipeline.orchestrator.ts</code><span class="why">分块、向量化、ES 写入、KG 建图的真正执行者</span></div></li>
+      <li><span class="dot"></span><div><code>knowledge-hub-frontend/src/pages/DocumentsPage.tsx</code> · <code>DocumentDetailPage.tsx</code><span class="why">上传入口、发布 / 下架 / 归档按钮</span></div></li>
+    </ul>
   </section>
 
   <!-- ══════════ 接口速查 ══════════ -->
