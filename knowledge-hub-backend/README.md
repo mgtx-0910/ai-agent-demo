@@ -8,6 +8,8 @@
 >
 > 🧭 **新手导学（HTML）**：[docs/html/knowledge-hub-guide.html](../docs/html/knowledge-hub-guide.html) — 前后端双项目 7 阶段上手路线，建议先看它再读本 README。
 >
+> 🧩 **实现细节补充**：[indexing-graph-retrieval.md](indexing-graph-retrieval.md) — 回滚时三套索引各自删不删、实体抽取按块还是按全文、问答检索怎么取实体/关系/文档 ID 与分块 ID。
+>
 > ❓ **面试题收集（HTML）**：[docs/html/interview-questions.html](../docs/html/interview-questions.html) — 围绕本项目 RAG 检索与评测的问答，含参考答案与追问。
 >
 > 🎯 **面试强化训练（HTML）**：[docs/html/interview-training.html](../docs/html/interview-training.html) — 前端视角补后端：26 个训练单元（原理 + 本项目代码位置 + 动手练习 + 验收标准），配 14 天冲刺计划。
