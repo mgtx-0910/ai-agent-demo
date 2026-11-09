@@ -315,6 +315,10 @@ npm run dev               # http://localhost:5173
       <b>贯穿全项目的约束：</b>Postgres 与 Mongo 是<strong>两个独立库，没有跨库事务</strong>。
       写正文采用「先写 Mongo → 再写 Postgres → 失败则补偿删除 Mongo」，只能保证最终一致。
     </div>
+    <div class="note ok">
+      <b>想知道"为什么偏偏是这八个组件"：</b>需求从哪来、数据画像怎么定的量级、每个组件被否掉的替代方案和它的代价，
+      另有一篇完整推导：<a href="../interview-review/企业知识库技术选型说明.md">企业知识库技术选型说明</a>（含评审会被问的三个尖锐问题）。
+    </div>
 
     <h3>基础设施一览（<code>docker compose up -d</code> 后可用）</h3>
     <div class="table-wrap">

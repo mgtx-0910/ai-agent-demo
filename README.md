@@ -12,6 +12,8 @@
 >
 > [🧭 Knowledge Hub 导学（HTML）](docs/html/knowledge-hub-guide.html) — 前后端双项目从零上手：两个项目是什么 · 架构与存储分工 · 技术栈 · 8 阶段改代码路线
 >
+> [📐 技术选型说明（Markdown）](docs/interview-review/企业知识库技术选型说明.md) — 需求从哪来 · 数据画像 → 存储分工 · 八个组件「非它不可」论证 · 代价与常见误区
+>
 > [❓ 面试题收集（HTML）](docs/html/interview-questions.html) — RAG / 检索 / 评测相关问答，支持搜索与按分类、难度、掌握状态筛选
 >
 > [🎯 面试强化训练（HTML）](docs/html/interview-training.html) — 前端视角补后端：44 个训练单元（原理 → 项目代码 → 配图 → 动手练习 → 验收）+ 14 天冲刺计划 + 口述自测
@@ -33,6 +35,11 @@
 │   │   ├── knowledge-hub-guide.html      # 🧭 前后端双项目导学（8 阶段上手路线）
 │   │   ├── interview-questions.html      # ❓ 面试题收集（搜索 / 分类 / 难度筛选）
 │   │   └── interview-training.html       # 🎯 面试强化训练（前端补后端 · 14 天计划）
+│   ├── interview-review/        # 🎤 面试复盘：选型论证 / 注入防御 / 越权防护 / 切块策略
+│   │   ├── 企业知识库技术选型说明.md      # 📐 需求来源 + 八个组件的「非它不可」论证
+│   │   ├── 大模型提示词注入防御指南.md
+│   │   ├── RAG知识库越权防护方案.md
+│   │   └── RAG切块策略与父块子块设计.md
 │   └── js/                      # 上述页面的数据与应用脚本
 ├── 📦 第一阶段 · 入门 Agent（2026-06-27 起）
 ├── tool-test/                   # 🔧 Tool & MCP — 工具定义与 Agent 循环
@@ -300,7 +307,7 @@ Mem0 是"记忆即平台"，加记忆只需调 API，抽取 / 去重 / 更新由
 
 ### 17. knowledge-hub-backend — 企业知识库后端
 
-把「文档 → 审核 → 检索 → 问答」串成一条完整链路，是两阶段学习成果的集大成者。完整说明见 [knowledge-hub-backend/README.md](knowledge-hub-backend/README.md)。
+把「文档 → 审核 → 检索 → 问答」串成一条完整链路，是两阶段学习成果的集大成者。完整说明见 [knowledge-hub-backend/README.md](knowledge-hub-backend/README.md)。技术取舍为什么这样定，见 [企业知识库技术选型说明](docs/interview-review/企业知识库技术选型说明.md)。
 
 - **三套索引，一次发布** — 文档发布后经 RabbitMQ 三路队列异步建立 ES 全文索引 / ES 向量索引 / Neo4j 知识图谱
 - **混合检索** — ES 关键词（IK 分词）+ 向量 kNN 双路召回 → RRF 融合 → qwen3-rerank 精排 → 阈值过滤，任一路失败都能降级

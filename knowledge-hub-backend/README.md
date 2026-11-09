@@ -111,6 +111,8 @@
 | **RabbitMQ** | 发布后的三条索引流水线消息 | 建索引耗时长（embedding + LLM 抽取），必须异步 |
 
 > Postgres 与 Mongo 是**两个独立库，没有跨库事务**。因此写正文采用「先写 Mongo → 再写 Postgres → 失败则补偿删除 Mongo」（见 `src/document/document.service.ts`）。
+>
+> 为什么是这八个组件、需求从哪来、每个选择的**代价**与被否掉的替代方案：见 [企业知识库技术选型说明](../docs/interview-review/企业知识库技术选型说明.md)。
 
 ### 2.3 技术栈
 
