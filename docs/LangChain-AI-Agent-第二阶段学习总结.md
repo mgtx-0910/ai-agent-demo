@@ -708,7 +708,7 @@ LIMIT $3;
 
 #### 12.3 mem0-test：专业的记忆平台
 
-前两个项目是"自己造记忆轮子"，Mem0 则是**把记忆做成一个平台**：给 LLM 应用加记忆只需调 API，抽取事实、去重、更新由服务端完成。
+前两个项目是"自己造记忆轮子"，Mem0 则把这个过程做成**产品**：托管平台调 API 即可（抽取、去重、更新在服务端完成），开源版把同一套逻辑收进 `mem0ai` 库、自己接 LLM 与向量库。
 
 **① 云端 MemoryClient 基础操作**：`add(对话)` 服务端异步抽取事实、`search` 语义搜索、`getAll/get/update/history/deleteAll` 齐全：
 
@@ -729,9 +729,19 @@ const { results } = await memoryClient.search('他住哪里？', {
 | `run_id` | 单次会话/任务 | 本次聊天的进度、待办 |
 | `agent_id` | Agent 自身 | 角色设定、回答风格 |
 
-**③ 本地部署**：云端 SDK 换成本地 docker 的 mem0 服务后是 OpenAPI 风格（`POST /memories`、`POST /search`），需要自写 `LocalMem0Client`（fetch + X-API-Key）。
+**③ 本地部署有两条路**：
 
-**④ 分层记忆 Agent**（`mem0-redis-mem0-agent.mjs`，全程最复杂的示例）把三种记忆叠在一起：
+| 方式 | 形态 | 说明 |
+|------|------|------|
+| 进程内 OSS（推荐） | `import { Memory } from "mem0ai/oss"` + `Memory.fromConfig()` | 无需独立服务，自己接 LLM / embedding / 向量库（pgvector 最省事）。Apache-2.0 免费可商用；参数是 camelCase（`{ userId, runId }`） |
+| 独立服务 | docker 起 mem0 server，走 OpenAPI（`POST /memories`、`POST /search`） | 需自写 `LocalMem0Client`（fetch + X-API-Key）；参数风格与云端一致 |
+
+> 注意：`mem0ai` 从 3.x 起 `package.json` 已带 `"./oss"` 导出，"SDK 只能连云端"的说法已经不成立。
+> 另外向量库若选 `redis` provider，需要 redis-stack（RediSearch/RedisJSON），普通 `redis:7` 跑不了。
+
+**④ Mem0 的原理**：`add()` 做两阶段——LLM 抽取候选事实 → 向量检索相似已有记忆 → 再由 LLM 决定对每条做 **ADD / UPDATE / DELETE / NOOP**。价值不在向量库，而在**写时治理**（能改、能删、能合并），这正是"消息表替代不了长期记忆"的根本原因。
+
+**⑤ 分层记忆 Agent**（`mem0-redis-mem0-agent.mjs`，全程最复杂的示例）把三种记忆叠在一起：
 
 ```
 Redis      短期：最近几轮消息原文，TTL 30 分钟自动过期

@@ -80,9 +80,35 @@ npm run scoped-memory:cleanup     # 清理三种 scope 测试数据
 
 ### ③ `mem0-local-api-demo.mjs` — 本地 mem0 OpenAPI
 
-`mem0ai` SDK 面向云端；本地 docker 起的 mem0 服务（默认 `http://localhost:8888`）
-使用 OpenAPI 风格接口。本示例用自写的 `LocalMem0Client`（fetch 封装）
-直接调用 `POST /memories`、`GET /memories`、`POST /search`、`DELETE /memories`。
+本地部署有两条路，别混：
+
+| 方式 | 形态 | 说明 |
+|---|---|---|
+| **进程内 OSS**（推荐） | `import { Memory } from "mem0ai/oss"` + `Memory.fromConfig()` | 无需额外服务，自己接 LLM / embedding / 向量库（pgvector 最省事）。Apache-2.0，免费可商用 |
+| **独立服务** | docker 起 mem0 server（默认 `http://localhost:8888`），走 OpenAPI | 本示例走的就是这条，用自写的 `LocalMem0Client`（fetch 封装）调 `POST /memories`、`GET /memories`、`POST /search`、`DELETE /memories` |
+
+> `mem0ai` 从 3.x 起 `package.json` 已带 `"./oss"` 导出，所以「SDK 只能连云端」的说法不再成立。
+> 注意两套参数风格不同：**OSS 是 camelCase**（`{ userId, runId, limit }`），**云版是 filters**（`{ filters: { user_id } }`）。
+> 向量库若选 `redis` provider，需要 redis-stack（RediSearch/RedisJSON），普通 `redis:7` 跑不了——本项目 `docker-compose.yml` 起的是普通 Redis，只能用 pgvector / qdrant 等。
+
+进程内 OSS 的最小用法（provider 与字段的完整定义见 `node_modules/mem0ai/dist/oss/index.d.ts`，pgvector 需先 `CREATE EXTENSION vector`）：
+
+```js
+import { Memory } from "mem0ai/oss";
+
+const memory = Memory.fromConfig({
+  llm:      { provider: "openai", config: { apiKey, baseURL, model: "qwen-plus" } },
+  embedder: { provider: "openai", config: { apiKey, baseURL, model: "text-embedding-v3", embeddingDims: 1024 } },
+  vectorStore: {
+    provider: "pgvector",
+    config: { host: "localhost", port: 5432, dbname: "kh", user, password,
+              collectionName: "memories", dimension: 1024 },
+  },
+});
+
+await memory.add([{ role: "user", content: "我是成都研发中心后端" }], { userId: "u1" });
+const { results } = await memory.search("我在哪个团队？", { userId: "u1", limit: 5 });
+```
 
 ```bash
 npm run local-api              # add：写入一组示例对话

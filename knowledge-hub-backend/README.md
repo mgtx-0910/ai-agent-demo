@@ -12,6 +12,8 @@
 >
 > ❓ **面试题收集（HTML）**：[docs/html/interview-questions.html](../docs/html/interview-questions.html) — 围绕本项目 RAG 检索与评测的问答，含参考答案与追问。
 >
+> 🧠 **记忆体系复盘**：[docs/interview-review/记忆体系与Agent框架面试复盘.md](../docs/interview-review/记忆体系与Agent框架面试复盘.md) — LangChain/LangGraph 分工、Tool Calling 链路、本项目三层记忆的实现与取舍、Mem0 原理与免费自托管、长期记忆 vs 消息表的边界、显存估算。
+>
 > 🎯 **面试强化训练（HTML）**：[docs/html/interview-training.html](../docs/html/interview-training.html) — 前端视角补后端：26 个训练单元（原理 + 本项目代码位置 + 动手练习 + 验收标准），配 14 天冲刺计划。
 
 ## 目录
@@ -439,7 +441,21 @@ createAgent({ model, tools, systemPrompt, middleware })
 | 短期热窗口 | Redis | 最近 N 条（`CHAT_SHORT_MEMORY_MAX_MESSAGES=20`） | TTL 后不丢历史，下次从 Postgres 回填 |
 | 长期记忆 | Mem0（可选） | 跨会话的用户偏好类信息 | 未配 Key 则整体跳过 |
 
+**上下文压缩有两道**，作用范围不同，别混：
+
+| 机制 | 位置 | 触发 | 是否持久 |
+|---|---|---|---|
+| 滑动窗口 `slice(-20)` | `chat-short-memory.service.ts:63` | 每次写入 Redis | 持久，跨轮生效 |
+| `summarizationMiddleware` | `ai-stream.service.ts:367` | 单次请求内超 12 条，保留最近 6 条 | 不持久，只活在本次 agent 运行的内存里 |
+
+**Mem0 两种接入方式**：
+
+- **托管平台**（当前默认）：`MEM0_API_KEY` + 可选 `MEM0_HOST`，用 `MemoryClient`。
+- **免费自托管**：`mem0ai` 包自带 `./oss` 导出（Apache-2.0），改用 `Memory.fromConfig()` 直连 pgvector，不依赖官方服务。注意 OSS 参数是 camelCase（`{ userId, runId }`），云版是 `filters: { user_id }`。
+
 > 定位很明确：**记忆不是知识库**。用户偏好可以记住，制度条文必须以检索结果为准，不能让「记忆」覆盖「知识库」。
+>
+> 已知限制：会话摘要不落库（长会话每轮重算）、窗口按条数而非 token 计、缺单条记忆纠错入口。完整分析与改进方向见 [记忆体系复盘](../docs/interview-review/记忆体系与Agent框架面试复盘.md) 附录 C。
 
 ### 5.6 认证与权限
 
@@ -785,7 +801,7 @@ EVAL_CONCURRENCY=4 pnpm eval:rag               # 并发（默认 2）
 | Embedding | `EMBEDDING_DIMENSION=1024`、`EMBEDDING_BASE_URL`、`EMBEDDING_MODEL`、`EMBEDDING_API_KEY`（可选） | 不配 Key 则本地哈希降级 |
 | Rerank | `RAG_RERANK_ENABLED`、`RAG_RERANK_MODEL`、`RERANK_API_KEY`（可选）、`RAG_MIN_SCORE=0.4` | 精排与过滤阈值 |
 | 混合检索 | `RAG_HYBRID_TOP_K=20`、`RAG_RRF_C=60`、`RAG_CHUNK_SIZE=512`、`RAG_CHUNK_OVERLAP=64` | 召回与分块参数 |
-| 记忆 | `CHAT_SHORT_MEMORY_MAX_MESSAGES=20`、`CHAT_SHORT_MEMORY_TTL_SECONDS=86400`、`MEM0_API_KEY`（可选）、`MEM0_TOP_K=5` | 三层记忆 |
+| 记忆 | `CHAT_SHORT_MEMORY_MAX_MESSAGES=20`、`CHAT_SHORT_MEMORY_TTL_SECONDS=86400`、`MEM0_API_KEY`（可选）、`MEM0_HOST`（可选，指向自托管 mem0 服务）、`MEM0_TOP_K=5` | 三层记忆 |
 | 联网 | `BOCHA_API_KEY`（可选） | 不配则 `web_search` 返回提示 |
 | 观测 · LangSmith | `LANGSMITH_TRACING`、`LANGSMITH_API_KEY`、`LANGSMITH_PROJECT` | LangChain callback 跟踪（可选） |
 | 观测 · Langfuse | `LANGFUSE_PUBLIC_KEY`、`LANGFUSE_SECRET_KEY`（两个都配才启用）、`LANGFUSE_BASE_URL` | 对话 tracing + 评测上报；不配则整套空转 |
