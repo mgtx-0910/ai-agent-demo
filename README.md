@@ -307,7 +307,7 @@ Mem0 是"记忆即平台"，加记忆只需调 API，抽取 / 去重 / 更新由
 
 ### 17. knowledge-hub-backend — 企业知识库后端
 
-把「文档 → 审核 → 检索 → 问答」串成一条完整链路，是两阶段学习成果的集大成者。完整说明见 [knowledge-hub-backend/README.md](knowledge-hub-backend/README.md)。技术取舍为什么这样定，见 [企业知识库技术选型说明](docs/interview-review/企业知识库技术选型说明.md)。
+把「文档 → 审核 → 检索 → 问答」串成一条完整链路，是两阶段学习成果的集大成者。完整说明见 [knowledge-hub-backend/README.md](knowledge-hub-backend/README.md)。技术取舍为什么这样定，见 [企业知识库技术选型说明](docs/interview-review/企业知识库技术选型说明.md)。链路图见 [ARCHITECTURE.md](knowledge-hub-backend/ARCHITECTURE.md)（系统上下文 / 模块依赖 / 索引流水线 / Agentic RAG 时序）。
 
 - **三套索引，一次发布** — 文档发布后经 RabbitMQ 三路队列异步建立 ES 全文索引 / ES 向量索引 / Neo4j 知识图谱
 - **混合检索** — ES 关键词（IK 分词）+ 向量 kNN 双路召回 → RRF 融合 → qwen3-rerank 精排 → 阈值过滤，任一路失败都能降级

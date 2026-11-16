@@ -10,6 +10,10 @@
 >
 > 🧩 **实现细节补充**：[indexing-graph-retrieval.md](indexing-graph-retrieval.md) — 回滚时三套索引各自删不删、实体抽取按块还是按全文、问答检索怎么取实体/关系/文档 ID 与分块 ID。
 >
+> 🖼️ **架构与链路图**：[ARCHITECTURE.md](ARCHITECTURE.md) — 10 张 Mermaid 图（系统上下文 / 模块依赖 / 文档状态机 / MQ 索引流水线 / Agentic RAG 时序 / 评测链路 / 数据归属）+ 接口清单；图由 CodeGraph 索引数据生成，配套前端为 `knowledge-hub-frontend`。
+>
+> 📏 **评测体系方法论**：[EVALUATION.md](EVALUATION.md) — 离线金标与线上监控怎么分工、评估器怎么选、badcase 怎么回流，以及本项目的差距清单与三个补齐动作。
+>
 > ❓ **面试题收集（HTML）**：[docs/html/interview-questions.html](../docs/html/interview-questions.html) — 围绕本项目 RAG 检索与评测的问答，含参考答案与追问。
 >
 > 🧠 **记忆体系复盘**：[docs/interview-review/记忆体系与Agent框架面试复盘.md](../docs/interview-review/记忆体系与Agent框架面试复盘.md) — LangChain/LangGraph 分工、Tool Calling 链路、本项目三层记忆的实现与取舍、Mem0 原理与免费自托管、长期记忆 vs 消息表的边界、显存估算。
@@ -73,6 +77,8 @@
 ## 二、架构总览
 
 ### 2.1 分层
+
+> 本节是摘要；完整的图示版（系统上下文 / 模块依赖 / MQ 索引流水线 / Agentic RAG 时序 / 数据归属）见 [ARCHITECTURE.md](ARCHITECTURE.md)。
 
 ```
                  ┌──────────────────────────┐
@@ -609,7 +615,7 @@ EVAL_CONCURRENCY=4 pnpm eval:rag               # 并发（默认 2）
 - 配了 `LANGFUSE_*`：以 `agentic-rag` 为名的 experiment 上报到 Langfuse，每条数据的 9 个分数挂在对应 trace 上，可横向对比不同 prompt / 模型 / 参数版本。
 - 没配：终端逐条打印 `[id] intent=… answer=…` 以及每个指标的分数与注释。
 
-注意：9 条只够冒烟与回归（防「改 A 坏 B」），不足以做统计意义上的效果对比；judge 与答题同源模型，存在自评偏置；目前也没接 CI。
+注意：9 条只够冒烟与回归（防「改 A 坏 B」），不足以做统计意义上的效果对比；judge 与答题同源模型，存在自评偏置；目前也没接 CI。补齐路径（反馈接口 → 扩金标 → CI 门禁）与生产上的评测分层做法，见 [EVALUATION.md](EVALUATION.md)。
 
 ---
 
