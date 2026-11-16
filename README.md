@@ -14,9 +14,19 @@
 >
 > [📐 技术选型说明（Markdown）](docs/interview-review/企业知识库技术选型说明.md) — 需求从哪来 · 数据画像 → 存储分工 · 八个组件「非它不可」论证 · 代价与常见误区
 >
+> [🛡️ 大模型提示词注入防御指南（Markdown）](docs/interview-review/大模型提示词注入防御指南.md) — 为什么难防 · 纵深防御分层 · RAG 链路上的拦截点 · 致命三要素 · 上线自查清单
+>
+> [🔒 RAG 知识库越权防护方案（Markdown）](docs/interview-review/RAG知识库越权防护方案.md) — 加了权限过滤为何仍越权 · 检索侧与生成侧漏洞 · chunk 权限标签 · 防护落地
+>
+> [🧩 RAG 切块策略与父块子块设计（Markdown）](docs/interview-review/RAG切块策略与父块子块设计.md) — 固定 Token 切块丢什么 · 边界感知切分 · 父块存原文 / 子块向量化的两层架构
+>
 > [❓ 面试题收集（HTML）](docs/html/interview-questions.html) — RAG / 检索 / 评测相关问答，支持搜索与按分类、难度、掌握状态筛选
 >
 > [🎯 面试强化训练（HTML）](docs/html/interview-training.html) — 前端视角补后端：44 个训练单元（原理 → 项目代码 → 配图 → 动手练习 → 验收）+ 14 天冲刺计划 + 口述自测
+>
+> [🛡️ 简历防守训练（HTML）](docs/html/resume-agent-training.html) — 按简历条目准备追问：Knowledge Hub 亮点 → 可能被问的点 → 防守话术
+>
+> [🧠 记忆体系与 Agent 框架面试复盘（Markdown）](docs/interview-review/记忆体系与Agent框架面试复盘.md) — LangChain/LangGraph 区别 · Tool Calling 链路 · 三层记忆 · 私有化部署与微调 · 0.7B 显存计算
 
 ---
 
@@ -34,12 +44,14 @@
 │   ├── html/                    # 🌐 HTML 单页文档（浏览器直接打开）
 │   │   ├── knowledge-hub-guide.html      # 🧭 前后端双项目导学（8 阶段上手路线）
 │   │   ├── interview-questions.html      # ❓ 面试题收集（搜索 / 分类 / 难度筛选）
-│   │   └── interview-training.html       # 🎯 面试强化训练（前端补后端 · 14 天计划）
-│   ├── interview-review/        # 🎤 面试复盘：选型论证 / 注入防御 / 越权防护 / 切块策略
+│   │   ├── interview-training.html       # 🎯 面试强化训练（前端补后端 · 14 天计划）
+│   │   └── resume-agent-training.html    # 🛡️ 简历防守训练（简历条目 → 追问 → 防守话术）
+│   ├── interview-review/        # 🎤 面试复盘：选型论证 / 注入防御 / 越权防护 / 切块策略 / 记忆体系
 │   │   ├── 企业知识库技术选型说明.md      # 📐 需求来源 + 八个组件的「非它不可」论证
 │   │   ├── 大模型提示词注入防御指南.md
 │   │   ├── RAG知识库越权防护方案.md
-│   │   └── RAG切块策略与父块子块设计.md
+│   │   ├── RAG切块策略与父块子块设计.md
+│   │   └── 记忆体系与Agent框架面试复盘.md  # 🧠 LangChain/LangGraph · Tool Calling · 三层记忆 · 微调与显存
 │   └── js/                      # 上述页面的数据与应用脚本
 ├── 📦 第一阶段 · 入门 Agent（2026-06-27 起）
 ├── tool-test/                   # 🔧 Tool & MCP — 工具定义与 Agent 循环
@@ -67,6 +79,11 @@
 ├── pgsql-test/                  # PostgreSQL + pgvector
 ├── redis-test/                  # Redis 记忆
 ├── mem0-test/                   # Mem0 记忆平台
+├── nest-feature/                # NestJS 请求生命周期四大件 + JWT
+├── oss-test/                    # 对象存储上传三 SDK 对比（S3 / ali-oss / MinIO）
+├── multi-modal-agent/           # 多模态合集（图像/音频/视频理解 + 万相生成 + OSS 直传）
+├── rabbitmq-test/               # RabbitMQ 四种交换机实战
+├── langfuse-test/               # Langfuse 链路追踪 + Dataset 离线评测（09-14）
 │
 ├── 📦 第三阶段 · 综合实战（2026-09-16 起）
 ├── knowledge-hub-backend/       # 🏢 企业知识库后端（文档 → 审核 → 互动 → 检索 → RAG 问答）
@@ -142,7 +159,7 @@ Prompt 复杂到一定程度就需要组件化管理。
 
 > 📖 完整讲解见 [第二阶段学习总结](docs/LangChain-AI-Agent-第二阶段学习总结.md)
 
-**阶段主题**：从 `.mjs` 脚本升级为可服务的 Web 应用；用 LangGraph 把"链"升级为"图"；把检索做到生产级（路由 / 混合 / 图谱 / 评测）；补全记忆与存储体系。
+**阶段主题**：从 `.mjs` 脚本升级为可服务的 Web 应用；用 LangGraph 把"链"升级为"图"；把检索做到生产级（路由 / 混合 / 图谱 / 评测）；补全记忆与存储体系；再补齐框架拦截点、对象存储、多模态、消息队列与 Langfuse 观测这些工程周边能力（09-08 ~ 09-14）。
 
 ### 1. hello-nest-langchain — NestJS 工程化集成
 
@@ -297,6 +314,53 @@ Mem0 是"记忆即平台"，加记忆只需调 API，抽取 / 去重 / 更新由
 - **本地部署** — docker + OpenAPI（`POST /memories`、`POST /search`），自写 `LocalMem0Client`
 - **分层记忆 Agent** — Redis 短期 + Mem0 user 长期 + Mem0 session 任务，记忆分类器写回
 
+### 17. nest-feature — NestJS 请求生命周期四大件
+
+在写业务模块之前，先把框架的拦截点摸清。
+
+- **四大件分工** — Guard（能不能进）/ Pipe（参数校验转换）/ Interceptor（进出包裹）/ Filter（异常兜底）
+- **自定义参数装饰器** — `@CurrentUser()` 从请求上下文取用户
+- **`@Global` 全局模块** — `auth` 模块免重复 import
+- **静态 Token 对照 JWT** — `admin-token-123` 模拟鉴权 vs `@nestjs/jwt` 真签真验
+- **统一响应包装** — 全局 Interceptor 输出 `{ code, data, message }`；`curl-test.md` 逐条验证
+
+### 18. oss-test — 对象存储上传三 SDK 对比
+
+同一张图用三种 SDK 各传一次，弄清"S3 是协议不是产品"。
+
+- **`@aws-sdk/client-s3`** — 最通用，可连 RustFS / MinIO / OSS
+- **`ali-oss`** — 阿里云原生 SDK，需真实云账号
+- **`minio`** — 本地 S3 兼容存储
+- **本地环境** — `docker-compose.yml` 起 rustfs，端口改 29000/29001（避开 Windows 保留端口）
+
+### 19. multi-modal-agent — 多模态调用合集
+
+覆盖"看懂 / 造出来 / 传上去"三类场景，两条调用路线泾渭分明。
+
+- **理解类走 OpenAI 兼容模式** — `ChatOpenAI` + baseURL，图像（qwen-vl-plus）/ 音频 / 视频统一入口
+- **生成类必须走 DashScope 原生 SDK** — wan2.6 文生图 / 改图 / 文生视频 / 图生视频
+- **原生 SDK 不抛异常** — 需自查 `status_code` / `task_status`
+- **OSS 直传** — `sts-gen.mjs` 签发临时凭证，`public/index.html` 浏览器直传
+
+### 20. rabbitmq-test — RabbitMQ 四种交换机
+
+同一套"文档解析流水线"业务设定，让差异只来自路由方式。
+
+- **direct** — routing key 精确匹配（info / warning / error）
+- **fanout** — 广播：解析完成同时通知向量库与 ES 两个消费者
+- **topic** — 通配符路由，`doc.<格式>.<事件>` 配合 `*.parsed` 订阅
+- **headers** — 不看 routing key，按消息属性组合匹配（`x-match=all|any`）
+- **能力关系** — fanout ⊂ direct ⊂ topic，headers 独立一路
+
+### 21. langfuse-test — Langfuse 链路追踪 + 离线评测
+
+LangSmith 之外的另一套观测方案，主打可自建。
+
+- **双埋点协作** — OTEL 铺管道（`instrumentation.mjs` 最先 import）+ LangChain CallbackHandler 产生 span
+- **在线追踪** — 一次 `agent.invoke` 形成 Trace / Session
+- **离线评测** — Dataset item 遍历 + evaluator 打分，`runExperiment` 做 item / run 双层评分
+- **可自建** — 自带 `docker-compose.yml`，不依赖 SaaS
+
 ---
 
 ## 第三阶段项目介绍（2026-09-16 起 · 综合实战）
@@ -305,9 +369,15 @@ Mem0 是"记忆即平台"，加记忆只需调 API，抽取 / 去重 / 更新由
 
 > 🧭 第一次进这两个目录建议先看 [Knowledge Hub 导学（HTML）](docs/html/knowledge-hub-guide.html)：两个项目是什么、架构与存储分工、技术栈地图，再按 7 阶段路线逐块读代码。相关问题收集在 [面试题收集（HTML）](docs/html/interview-questions.html)。
 
-### 17. knowledge-hub-backend — 企业知识库后端
+### 22. knowledge-hub-backend — 企业知识库后端
 
-把「文档 → 审核 → 检索 → 问答」串成一条完整链路，是两阶段学习成果的集大成者。完整说明见 [knowledge-hub-backend/README.md](knowledge-hub-backend/README.md)。技术取舍为什么这样定，见 [企业知识库技术选型说明](docs/interview-review/企业知识库技术选型说明.md)。链路图见 [ARCHITECTURE.md](knowledge-hub-backend/ARCHITECTURE.md)（系统上下文 / 模块依赖 / 索引流水线 / Agentic RAG 时序）。
+把「文档 → 审核 → 检索 → 问答」串成一条完整链路，是两阶段学习成果的集大成者。完整说明见 [knowledge-hub-backend/README.md](knowledge-hub-backend/README.md)。链路图见 [ARCHITECTURE.md](knowledge-hub-backend/ARCHITECTURE.md)（系统上下文 / 模块依赖 / 索引流水线 / Agentic RAG 时序）。
+
+> 🎤 面试题巩固（`docs/interview-review/`）：把项目里被追问最多的四个问题单独成篇——
+> [技术选型](docs/interview-review/企业知识库技术选型说明.md)（为什么是这八个组件）·
+> [切块与父子块](docs/interview-review/RAG切块策略与父块子块设计.md)（为什么要父块存原文 / 子块向量化）·
+> [越权防护](docs/interview-review/RAG知识库越权防护方案.md)（为什么加了 `where` 过滤还会越权）·
+> [提示词注入](docs/interview-review/大模型提示词注入防御指南.md)（为什么防不住、拦截点放哪）
 
 - **三套索引，一次发布** — 文档发布后经 RabbitMQ 三路队列异步建立 ES 全文索引 / ES 向量索引 / Neo4j 知识图谱
 - **混合检索** — ES 关键词（IK 分词）+ 向量 kNN 双路召回 → RRF 融合 → qwen3-rerank 精排 → 阈值过滤，任一路失败都能降级
@@ -321,7 +391,7 @@ Mem0 是"记忆即平台"，加记忆只需调 API，抽取 / 去重 / 更新由
 - **多存储分工** — Postgres 存元数据、Mongo 存正文、ES 做检索、Neo4j 做图谱、Redis 做凭证与热记忆、RustFS 存对象
 - **工程化基建** — Docker Compose 一键拉起 8 类服务（含自建 IK 分词 ES 镜像）、雪花 ID 主键、全量 curl 手工验证脚本
 
-### 18. knowledge-hub-frontend — 企业知识库前端
+### 23. knowledge-hub-frontend — 企业知识库前端
 
 后端能力的 React 管理台，把文档、互动、分类、通知、检索、问答、图谱、RBAC 这些界面接到真实接口上。完整说明见 [knowledge-hub-frontend/README.md](knowledge-hub-frontend/README.md)。
 
@@ -363,6 +433,11 @@ Tool & MCP         RAG           Milvus      Memory      OutputParser    PromptT
   deepagents-test    deep-research-assistant   pgsql-test/redis-test     mem0-test
        09-02                  09-03                  09-04                 09-07
        └─ 中间件机制 → 综合实战 → 存储与分层记忆
+
+📦 工程周边能力（09-08 → 09-14）
+  nest-feature   oss-test   multi-modal-agent   rabbitmq-test   langfuse-test
+     09-08         09-09          09-10              09-10           09-14
+     └─ 框架拦截点 → 对象存储 → 多模态 → 消息队列 → 链路追踪与评测
 ```
 
 ### 第三阶段学习时间线
@@ -374,7 +449,7 @@ Tool & MCP         RAG           Milvus      Memory      OutputParser    PromptT
         └─ 把两阶段所学组装成可交付的系统（后端 + React 管理台）：文档 → 审核 → 三套索引 → 混合检索 → Agentic RAG + RBAC
 ```
 
-第一阶段学的是"让大模型变成工业流水线"；第二阶段把流水线装进真实系统——能上图编排、能生产级检索与评测、有分层记忆、会语音、能定时干活；第三阶段把两者拼成一个可交付的业务系统——文档进得去、知识找得到、权限管得住。
+第一阶段学的是"让大模型变成工业流水线"；第二阶段把流水线装进真实系统——能上图编排、能生产级检索与评测、有分层记忆、会语音、能定时干活，还补齐了多模态、对象存储与消息队列这些周边件；第三阶段把两者拼成一个可交付的业务系统——文档进得去、知识找得到、权限管得住。
 
 ---
 
@@ -385,11 +460,12 @@ Tool & MCP         RAG           Milvus      Memory      OutputParser    PromptT
 - **后端框架**: NestJS 11（DI / SSE / WebSocket / 定时任务 / TypeORM）
 - **前端框架**: React 19 + Vite 8 + TypeScript（Ant Design 6 / React Router 7 / ECharts 6 / react-markdown）
 - **语音**: 腾讯云 TTS / ASR（TC3 WebSocket 签名）
+- **多模态**: 阿里云百炼 / DashScope（qwen-vl / omni 理解、wan2.6 万相生成）
 - **消息协议**: Vercel AI SDK（`ai` / `@ai-sdk/react` / `@ai-sdk/langchain`）
 - **检索与存储**: Milvus、Elasticsearch（IK 分词）、Neo4j、PostgreSQL（pgvector）、MySQL、MongoDB、Redis
-- **消息与对象存储**: RabbitMQ、RustFS（S3 兼容）
+- **消息与对象存储**: RabbitMQ（`amqplib`）、RustFS / MinIO / 阿里云 OSS（S3 协议）
 - **鉴权**: NestJS JWT / Passport / bcryptjs
 - **记忆**: Mem0（`mem0ai`）
-- **可观测 / 评测**: LangSmith、OpenEvals
+- **可观测 / 评测**: LangSmith、OpenEvals、Langfuse（OTEL + CallbackHandler）
 - **Schema**: Zod
 - **包管理**: npm / pnpm / fnm（Node 版本管理）
