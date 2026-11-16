@@ -28,6 +28,8 @@
 | **Score** | 打分结果（数值 / 类别 / 布尔 + comment） | `keyword_hit`、`non_empty`、`avg_keyword_hit` |
 | **Evaluator** | 打分函数（item 级或 run 级） | `keywordHitEvaluator` 等四个函数 |
 
+> 📘 上表只是清单，展开解释（含「一次完整请求」的边界、Span 与 HTML `<span>` 的区别、两条上报通道）见 [术语表.md](术语表.md)。
+
 ## 整体链路
 
 Trace 能出现在 Langfuse，靠的是「**OTEL 铺管道**」+「**CallbackHandler 产生 span**」两段协作，缺一不可：
